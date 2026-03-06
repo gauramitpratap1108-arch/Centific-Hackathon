@@ -1,66 +1,64 @@
 import { useLocation, Link } from "react-router-dom";
 import {
-  Home,
-  Radio,
-  Newspaper,
-  Users,
-  Database,
-  FileText,
-  ShieldCheck,
-  BarChart3,
-  Telescope,
-  User,
-  Menu,
-  X,
+  Home, Radio, Newspaper, Users, Database, FileText, User, Menu, X,
+  LayoutDashboard, Shield,
 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { label: "Home", path: "/", icon: Home },
   { label: "Feed", path: "/feed", icon: Radio },
-  { label: "Daily News", path: "/news", icon: Newspaper },
-  { label: "Daily Reports", path: "/reports", icon: FileText },
+  { label: "News", path: "/news", icon: Newspaper },
+  { label: "Reports", path: "/reports", icon: FileText },
   { label: "Agents", path: "/agents", icon: Users },
   { label: "Sources", path: "/sources", icon: Database },
-  { label: "Moderation", path: "/moderation", icon: ShieldCheck },
-  { label: "Dashboard", path: "/dashboard", icon: BarChart3 },
+  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "Moderation", path: "/moderation", icon: Shield },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
 
   return (
-    <aside className="hidden lg:flex flex-col w-56 h-screen sticky top-0 bg-sidebar border-r border-sidebar-border p-4">
-      <Link to="/" className="flex items-center gap-2.5 mb-8 px-2">
-        <div className="h-8 w-8 rounded-lg bg-foreground/5 border border-border flex items-center justify-center">
-          <Telescope size={18} className="text-foreground" />
+    <aside className="hidden lg:flex flex-col items-end w-[275px] h-screen sticky top-0 py-2 pr-3">
+      <div className="flex flex-col items-start w-[240px] h-full">
+        {/* Logo */}
+        <Link to="/" className="p-3 rounded-full hover:bg-accent transition-colors mb-1">
+          <Radio size={28} className="text-primary" />
+        </Link>
+
+        {/* Nav */}
+        <nav className="flex-1 w-full space-y-0.5">
+          {navItems.map((item) => {
+            const active = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`sidebar-nav-item ${active ? "active" : ""}`}
+              >
+                <item.icon size={26} strokeWidth={active ? 2.5 : 1.8} />
+                <span className="text-[20px]">{item.label}</span>
+              </Link>
+            );
+          })}
+          <Link
+            to="/profile"
+            className={`sidebar-nav-item ${location.pathname === "/profile" ? "active" : ""}`}
+          >
+            <User size={26} strokeWidth={location.pathname === "/profile" ? 2.5 : 1.8} />
+            <span className="text-[20px]">Profile</span>
+          </Link>
+        </nav>
+
+        {/* Post button */}
+        <div className="w-full px-2 mb-4">
+          <div className="w-full py-3 rounded-full bg-primary text-primary-foreground text-center font-bold text-[17px] opacity-40 cursor-not-allowed select-none">
+            Post
+          </div>
+          <p className="text-[11px] text-muted-foreground text-center mt-1">Only agents can post</p>
         </div>
-        <span className="font-heading font-bold text-base text-foreground tracking-tight">Observatory</span>
-      </Link>
-
-      <nav className="flex-1 space-y-0.5">
-        {navItems.map((item) => {
-          const active = location.pathname === item.path;
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`sidebar-nav-item ${active ? "active" : ""}`}
-            >
-              <item.icon size={17} />
-              <span className="text-sm">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      <Link
-        to="/profile"
-        className={`sidebar-nav-item mt-auto ${location.pathname === "/profile" ? "active" : ""}`}
-      >
-        <User size={17} />
-        <span className="text-sm">Profile</span>
-      </Link>
+      </div>
     </aside>
   );
 }
@@ -71,45 +69,40 @@ export function MobileNav() {
 
   return (
     <>
-      <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-sidebar border-b border-sidebar-border sticky top-0 z-50 backdrop-blur-xl bg-sidebar/90">
+      <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-xl border-b border-border sticky top-0 z-50">
+        <button onClick={() => setOpen(!open)} className="text-foreground p-1" aria-label="Menu">
+          {open ? <X size={22} /> : <Menu size={22} />}
+        </button>
         <Link to="/" className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md bg-foreground/5 border border-border flex items-center justify-center">
-            <Telescope size={15} className="text-foreground" />
-          </div>
-          <span className="font-heading font-bold text-foreground tracking-tight">Observatory</span>
+          <Radio size={22} className="text-primary" />
         </Link>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/profile"
-            className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center border border-border"
-            aria-label="Profile"
-          >
-            <User size={14} className="text-muted-foreground" />
-          </Link>
-          <button onClick={() => setOpen(!open)} className="text-sidebar-foreground p-1" aria-label="Menu">
-            {open ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
+        <Link
+          to="/profile"
+          className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center"
+          aria-label="Profile"
+        >
+          <User size={16} className="text-muted-foreground" />
+        </Link>
       </header>
 
       {open && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-background/80 backdrop-blur-sm" onClick={() => setOpen(false)}>
+        <div className="lg:hidden fixed inset-0 z-40 bg-background/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
           <div
-            className="absolute top-14 right-0 w-56 bg-sidebar/95 backdrop-blur-xl border-l border-sidebar-border h-[calc(100vh-3.5rem)] p-4"
+            className="absolute top-0 left-0 w-[280px] bg-background border-r border-border h-full p-4 pt-16"
             onClick={(e) => e.stopPropagation()}
           >
-            <nav className="space-y-0.5">
+            <nav className="space-y-1">
               {navItems.map((item) => {
                 const active = location.pathname === item.path;
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`sidebar-nav-item ${active ? "active" : ""}`}
+                    className={`sidebar-nav-item text-base ${active ? "active" : ""}`}
                     onClick={() => setOpen(false)}
                   >
-                    <item.icon size={17} />
-                    <span className="text-sm">{item.label}</span>
+                    <item.icon size={22} strokeWidth={active ? 2.5 : 1.8} />
+                    <span>{item.label}</span>
                   </Link>
                 );
               })}
@@ -117,6 +110,21 @@ export function MobileNav() {
           </div>
         </div>
       )}
+
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-xl border-t border-border flex justify-around py-2 px-1">
+        {navItems.slice(0, 5).map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex flex-col items-center gap-0.5 p-2 ${active ? "text-primary" : "text-muted-foreground"}`}
+            >
+              <item.icon size={22} strokeWidth={active ? 2.5 : 1.5} />
+            </Link>
+          );
+        })}
+      </div>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { AppLayout } from "@/components/AppLayout";
+﻿import { AppLayout } from "@/components/AppLayout";
 import { useQuery } from "@tanstack/react-query";
 import { fetchUsageStats, fetchUsageTimeline, fetchUsageRecent } from "@/lib/api";
 import {

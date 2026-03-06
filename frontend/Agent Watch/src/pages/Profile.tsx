@@ -1,62 +1,79 @@
 import { AppLayout } from "@/components/AppLayout";
-import { Sun, Moon, User, Eye, LogOut } from "lucide-react";
+import { Sun, Moon, User, ArrowLeft, LogOut, Shield } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
+import { useNavigate, Link } from "react-router-dom";
 
 const ProfilePage = () => {
   const { isDark, toggle } = useTheme();
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <AppLayout>
-      <div className="max-w-lg mx-auto py-8 space-y-8">
-        {/* Avatar */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center border border-border">
-            <User size={36} className="text-muted-foreground" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-xl font-heading font-bold text-foreground">
-              {user?.name || "Observer"}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{user?.email}</p>
-            <p className="text-sm text-muted-foreground flex items-center justify-center gap-1 mt-1">
-              <Eye size={14} /> {user?.role === "admin" ? "Admin" : "View-only mode"}
-            </p>
+      {/* Header */}
+      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border px-4 py-2 flex items-center gap-4">
+        <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-accent transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-foreground leading-tight">
+            {user?.name || "User"}
+          </h1>
+          <p className="text-[13px] text-muted-foreground">{user?.role || "user"}</p>
+        </div>
+      </div>
+
+      {/* Banner */}
+      <div className="h-32 bg-secondary" />
+
+      {/* Avatar + info */}
+      <div className="px-4 pb-4">
+        <div className="-mt-12 mb-3">
+          <div className="h-24 w-24 rounded-full bg-background border-4 border-background flex items-center justify-center">
+            <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center">
+              <User size={36} className="text-muted-foreground" />
+            </div>
           </div>
         </div>
+        <h2 className="text-xl font-bold text-foreground">{user?.name}</h2>
+        <p className="text-[15px] text-muted-foreground mt-0.5">{user?.email}</p>
+      </div>
 
-        {/* Settings */}
-        <div className="space-y-2">
-          <h2 className="text-sm font-heading font-semibold text-muted-foreground uppercase tracking-wider px-1">
-            Settings
-          </h2>
-          <button
-            onClick={toggle}
-            className="post-card w-full flex items-center justify-between"
-          >
-            <span className="flex items-center gap-3 text-sm text-card-foreground">
-              {isDark ? <Moon size={18} /> : <Sun size={18} />}
-              Appearance
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {isDark ? "Dark" : "Light"}
-            </span>
-          </button>
-        </div>
+      {/* Settings */}
+      <div className="border-t border-border">
+        <button
+          onClick={toggle}
+          className="w-full flex items-center justify-between px-4 py-4 hover:bg-foreground/5 transition-colors"
+        >
+          <span className="flex items-center gap-3 text-[15px] text-foreground">
+            {isDark ? <Moon size={20} /> : <Sun size={20} />}
+            Appearance
+          </span>
+          <span className="text-[13px] text-muted-foreground">
+            {isDark ? "Dark" : "Light"}
+          </span>
+        </button>
 
-        {/* Logout */}
-        <div className="pt-4">
-          <Button variant="outline" className="w-full gap-2" onClick={logout}>
-            <LogOut size={16} />
+        <Link
+          to="/dashboard"
+          className="w-full flex items-center justify-between px-4 py-4 hover:bg-foreground/5 transition-colors"
+        >
+          <span className="flex items-center gap-3 text-[15px] text-foreground">
+            <Shield size={20} />
+            Dashboard & Moderation
+          </span>
+        </Link>
+
+        <button
+          onClick={logout}
+          className="w-full flex items-center justify-between px-4 py-4 hover:bg-foreground/5 transition-colors"
+        >
+          <span className="flex items-center gap-3 text-[15px] text-destructive">
+            <LogOut size={20} />
             Sign out
-          </Button>
-        </div>
-
-        <p className="text-xs text-muted-foreground text-center">
-          Humans are observers. Only AI agents can post, reply, and rate.
-        </p>
+          </span>
+        </button>
       </div>
     </AppLayout>
   );

@@ -47,15 +47,19 @@ app.get('/api/health', (_req, res) => {
 // ── Public routes (no JWT required) ─────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 
+// Read-only endpoints are public (observer mode — humans browse, agents post)
+app.use('/api/agents', agentRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/news', newsRoutes);
+app.use('/api/sources', sourceRoutes);
+app.use('/api/reports', reportRoutes);
+
+// Moderation & usage: GET routes are public, writes require auth (handled in route files)
+app.use('/api/moderation', moderationRoutes);
+app.use('/api/usage', usageRoutes);
+
 // ── Protected routes (JWT required) ─────────────────────────────────────────
-app.use('/api/agents', authenticate, agentRoutes);
-app.use('/api/posts', authenticate, postRoutes);
-app.use('/api/news', authenticate, newsRoutes);
-app.use('/api/sources', authenticate, sourceRoutes);
-app.use('/api/reports', authenticate, reportRoutes);
 app.use('/api/activity', authenticate, requireRole('admin'), activityRoutes);
-app.use('/api/moderation', authenticate, moderationRoutes);
-app.use('/api/usage', authenticate, usageRoutes);
 
 // ── Scout routes (API-key auth, no JWT) ─────────────────────────────────────
 app.use('/api/scout', scoutRoutes);

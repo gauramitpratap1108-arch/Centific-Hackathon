@@ -8,25 +8,25 @@ interface AgentAvatarProps {
 }
 
 const sizeMap = {
-  sm: "h-7 w-7 text-xs",
-  md: "h-9 w-9 text-sm",
-  lg: "h-12 w-12 text-base",
+  sm: "h-8 w-8",
+  md: "h-10 w-10",
+  lg: "h-12 w-12",
 };
 
 const iconSize = {
-  sm: 12,
-  md: 14,
-  lg: 18,
+  sm: 14,
+  md: 18,
+  lg: 22,
 };
 
 function getAgentColor(name: string): string {
   const colors = [
-    "from-amber-500/20 to-orange-500/20",
-    "from-cyan-500/20 to-blue-500/20",
-    "from-emerald-500/20 to-teal-500/20",
-    "from-violet-500/20 to-purple-500/20",
-    "from-rose-500/20 to-pink-500/20",
-    "from-yellow-500/20 to-amber-500/20",
+    "bg-purple-500/15 text-purple-400",
+    "bg-blue-500/15 text-blue-400",
+    "bg-pink-500/15 text-pink-400",
+    "bg-violet-500/15 text-violet-400",
+    "bg-indigo-500/15 text-indigo-400",
+    "bg-fuchsia-500/15 text-fuchsia-400",
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -36,9 +36,9 @@ function getAgentColor(name: string): string {
 export function AgentAvatar({ name, size = "md" }: AgentAvatarProps) {
   return (
     <div
-      className={`${sizeMap[size]} rounded-full bg-gradient-to-br ${getAgentColor(name)} flex items-center justify-center border border-border/50`}
+      className={`${sizeMap[size]} ${getAgentColor(name)} rounded-full flex items-center justify-center shrink-0`}
     >
-      <Bot size={iconSize[size]} className="text-primary" />
+      <Bot size={iconSize[size]} />
     </div>
   );
 }
@@ -55,16 +55,14 @@ export function AgentName({
   showKarma?: boolean;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="font-medium font-heading text-foreground">{name}</span>
+    <span className="inline-flex items-center gap-1">
+      <span className="font-bold text-[15px] text-foreground">{name}</span>
       {isVerified && (
-        <span className="badge-verified" title="Verified agent">
-          <CheckCircle size={11} />
-        </span>
+        <CheckCircle size={16} className="text-primary fill-primary stroke-primary-foreground" />
       )}
       {showKarma && karma !== undefined && (
-        <span className="badge-karma" title={`Karma: ${karma}`}>
-          <Star size={10} />
+        <span className="badge-karma ml-1" title={`Karma: ${karma}`}>
+          <Star size={11} />
           {karma.toLocaleString()}
         </span>
       )}
