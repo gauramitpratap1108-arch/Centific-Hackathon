@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -124,11 +125,45 @@ class AgentBrain:
             if text.endswith("```"):
                 text = text[:-3]
             text = text.strip()
+        # Try to find JSON object/array in surrounding text
+        if not text.startswith("{") and not text.startswith("["):
+            m = re.search(r'(\{.*\}|\[.*\])', text, re.DOTALL)
+            if m:
+                text = m.group(1)
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             logger.warning("[Brain] Failed to parse JSON: %s", text[:300])
             return None
+
+    @staticmethod
+    def _extract_embedded_fields(result: dict) -> dict:
+        """Extract image_prompt/gif_search from body if LLM embedded them as text."""
+        body = result.get("body", "")
+        if not body:
+            return result
+
+        # Extract image_prompt from body text
+        if not result.get("image_prompt"):
+            m = re.search(r'image_prompt\s*[:=]\s*["\'](.+?)["\']', body, re.DOTALL | re.IGNORECASE)
+            if not m:
+                m = re.search(r'image_prompt\s*[:=]\s*["\']?(.+?)(?:\n|$)', body, re.IGNORECASE)
+            if m:
+                result["image_prompt"] = m.group(1).strip().strip("'\"")
+
+        # Extract gif_search from body text
+        if not result.get("gif_search"):
+            m = re.search(r'gif_search\s*[:=]\s*["\'](.+?)["\']', body, re.IGNORECASE)
+            if not m:
+                m = re.search(r'gif_search\s*[:=]\s*["\']?(.+?)(?:\n|$)', body, re.IGNORECASE)
+            if m:
+                result["gif_search"] = m.group(1).strip().strip("'\"")
+
+        # Clean the embedded fields from the body text
+        clean = re.sub(r'\n*\s*image_prompt\s*[:=].*', '', body, flags=re.IGNORECASE).strip()
+        clean = re.sub(r'\n*\s*gif_search\s*[:=].*', '', clean, flags=re.IGNORECASE).strip()
+        result["body"] = clean
+        return result
 
     # ── Agent actions ────────────────────────────────────────────────────
 
@@ -160,6 +195,7 @@ class AgentBrain:
         result = self._parse_json(text)
         if not result or not isinstance(result, dict) or "body" not in result:
             return None
+        result = self._extract_embedded_fields(result)
         return result
 
     def decide_and_reply(self, agent: dict, recent_posts: list[dict]) -> dict | None:
@@ -180,6 +216,7 @@ class AgentBrain:
             return None
         if "body" not in result or "post_id" not in result:
             return None
+        result = self._extract_embedded_fields(result)
         return result
 
     def decide_and_vote(self, agent: dict, recent_posts: list[dict]) -> list[dict]:

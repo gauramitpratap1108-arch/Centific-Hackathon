@@ -23,13 +23,22 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
-const ROLES = ["Researcher", "Benchmark Analyst", "General", "Competitor Watcher", "Other"];
-const SKILL_OPTIONS = ["get_latest_news", "get_benchmark_scores", "post_to_feed", "reply", "rate"];
+const ROLES = [
+  "Research Scientist", "Benchmark Analyst", "AI Safety Researcher",
+  "AI Product Strategist", "Open Source ML Engineer", "Agentic AI Researcher",
+  "Competitor Watcher", "General", "Other",
+];
+const SKILL_OPTIONS = [
+  "get_latest_news", "get_benchmark_scores", "post_to_feed", "reply", "rate",
+  "generate_image", "reply_with_gif",
+];
 const FREQUENCIES = [
+  { value: "every_5_min", label: "Every 5 min" },
+  { value: "every_15_min", label: "Every 15 min" },
   { value: "every_30_min", label: "Every 30 min" },
-  { value: "every_2_hours", label: "Every 2 hours" },
+  { value: "hourly", label: "Hourly" },
+  { value: "every_6_hours", label: "Every 6 hours" },
   { value: "daily", label: "Daily" },
-  { value: "on_new_content", label: "On new content only" },
   { value: "manual", label: "Manual" },
 ];
 

@@ -1,11 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useSources } from "@/hooks/use-api";
-import { createSource, updateSource } from "@/lib/api";
+import { createSource, updateSource, fetchSourceNews, runScoutSource } from "@/lib/api";
 import { timeAgo } from "@/lib/time";
 import {
   Wifi, WifiOff, Plus, Loader2, Pencil, Database, Info, Eye, EyeOff,
-  Sparkles, Zap, Code2,
+  Sparkles, Zap, Code2, Play, Clock, ExternalLink, ChevronRight,
+  CheckCircle2, AlertCircle, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,12 +31,26 @@ const SOURCE_OPTIONS = [
 ];
 
 const SCHEDULES = [
+  { value: "every_30_sec", label: "Every 30 sec (testing)" },
+  { value: "every_1_min", label: "Every 1 min" },
+  { value: "every_5_min", label: "Every 5 min" },
   { value: "every_15_min", label: "Every 15 min" },
   { value: "every_30_min", label: "Every 30 min" },
   { value: "every_hour", label: "Hourly" },
   { value: "every_6_hours", label: "Every 6 hours" },
   { value: "daily", label: "Daily" },
 ];
+
+const SCHEDULE_SECONDS: Record<string, number> = {
+  every_30_sec: 30,
+  every_1_min: 60,
+  every_5_min: 300,
+  every_15_min: 900,
+  every_30_min: 1800,
+  every_hour: 3600,
+  every_6_hours: 21600,
+  daily: 86400,
+};
 
 const ARXIV_CATEGORIES = [
   "cs.AI", "cs.LG", "cs.CL", "cs.CV", "cs.NE",
@@ -68,13 +83,43 @@ const OPENAI_MODELS: ModelOption[] = [
   { id: "gpt-4.1", name: "GPT-4.1", badge: "Balanced", badgeColor: "bg-zinc-500/20 text-zinc-400", desc: "Non-reasoning balance between speed and capability", icon: Sparkles },
 ];
 
-// ── Helper to derive backend type from source option ─────
+// ── Helpers ──────────────────────────────────────────────
 
 function sourceOptionToType(sourceOption: string): string {
-  if (sourceOption === "ArXiv") return "API";
-  if (sourceOption === "Hugging Face") return "API";
-  if (sourceOption === "Web Search") return "RSS";
-  return "n8n";
+  if (sourceOption === "ArXiv") return "arxiv";
+  if (sourceOption === "Hugging Face") return "huggingface";
+  if (sourceOption === "Web Search") return "web_search";
+  return "custom_api";
+}
+
+function friendlyType(type: string): string {
+  if (type === "web_search") return "Web Search";
+  if (type === "arxiv") return "ArXiv";
+  if (type === "huggingface") return "Hugging Face";
+  if (type === "custom_api") return "Custom API";
+  return type;
+}
+
+function friendlySchedule(schedule: string): string {
+  const entry = SCHEDULES.find((s) => s.value === schedule);
+  return entry ? entry.label : schedule.replace(/_/g, " ");
+}
+
+function getNextRunTime(source: Source): string | null {
+  if (source.status !== "active" || !source.last_run_at || !source.schedule) return null;
+  const intervalSec = SCHEDULE_SECONDS[source.schedule];
+  if (!intervalSec) return null;
+  const lastRun = new Date(source.last_run_at).getTime();
+  const nextRun = lastRun + intervalSec * 1000;
+  const now = Date.now();
+  if (nextRun <= now) return "due now";
+  const diffSec = Math.floor((nextRun - now) / 1000);
+  const h = Math.floor(diffSec / 3600);
+  const m = Math.floor((diffSec % 3600) / 60);
+  const s = diffSec % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${pad(m)}:${pad(s)}`;
 }
 
 // ── Component ────────────────────────────────────────────
@@ -100,6 +145,25 @@ const SourcesPage = () => {
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [status, setStatus] = useState<"active" | "paused">("active");
+  // Tavily-specific
+  const [tavilyApiKey, setTavilyApiKey] = useState("");
+  const [showTavilyKey, setShowTavilyKey] = useState(false);
+  const [searchDepth, setSearchDepth] = useState<"basic" | "advanced">("advanced");
+  const [searchFocus, setSearchFocus] = useState<"news" | "general">("news");
+
+  // Detail / Log view state
+  const [detailSource, setDetailSource] = useState<Source | null>(null);
+  const [detailNews, setDetailNews] = useState<any[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState<any>(null);
+
+  // Timer for live countdown — ticks every second
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const resetForm = useCallback(() => {
     setSourceType("ArXiv");
@@ -113,6 +177,10 @@ const SourcesPage = () => {
     setApiKey("");
     setShowApiKey(false);
     setStatus("active");
+    setTavilyApiKey("");
+    setShowTavilyKey(false);
+    setSearchDepth("advanced");
+    setSearchFocus("news");
   }, []);
 
   const openAdd = () => {
@@ -124,16 +192,14 @@ const SourcesPage = () => {
   const openEdit = (source: Source) => {
     setEditingSource(source);
     const cfg = (source.config || {}) as Record<string, unknown>;
-    const srcLabel = source.label;
 
-    // Try to reverse-detect source type
     const t = source.type;
-    if (t === "API" && srcLabel.toLowerCase().includes("arxiv")) setSourceType("ArXiv");
-    else if (t === "API") setSourceType("Hugging Face");
-    else if (t === "RSS") setSourceType("Web Search");
+    if (t === "arxiv") setSourceType("ArXiv");
+    else if (t === "huggingface") setSourceType("Hugging Face");
+    else if (t === "web_search") setSourceType("Web Search");
     else setSourceType("Custom API (n8n)");
 
-    setLabel(srcLabel);
+    setLabel(source.label);
     setTopic((cfg.topic as string) || "");
     setItemsPerDay(String((cfg.items_per_day as number) || 5));
     setSchedule(source.schedule || "daily");
@@ -142,8 +208,47 @@ const SourcesPage = () => {
     setModelId((cfg.model as string) || "claude-sonnet-4-20250514");
     setApiKey("");
     setShowApiKey(false);
+    setTavilyApiKey("");
+    setShowTavilyKey(false);
+    setSearchDepth((cfg.search_depth as "basic" | "advanced") || "advanced");
+    setSearchFocus((cfg.search_focus as "news" | "general") || "news");
     setStatus(source.status);
     setFormOpen(true);
+  };
+
+  const openDetail = async (source: Source) => {
+    setDetailSource(source);
+    setDetailNews([]);
+    setRunResult(null);
+    setDetailLoading(true);
+    try {
+      const res = await fetchSourceNews(source.id, 30);
+      setDetailNews(res.data || []);
+    } catch {
+      // ignore
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleRunNow = async () => {
+    if (!detailSource || running) return;
+    setRunning(true);
+    setRunResult(null);
+    try {
+      const result = await runScoutSource(detailSource.id);
+      setRunResult(result);
+      toast({ title: "Scout run complete", description: `${result.ingested ?? 0} new items ingested` });
+      const res = await fetchSourceNews(detailSource.id, 30);
+      setDetailNews(res.data || []);
+      qc.invalidateQueries({ queryKey: ["sources"] });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Scout run failed";
+      setRunResult({ status: "error", error: message });
+      toast({ title: "Scout run failed", description: message, variant: "destructive" });
+    } finally {
+      setRunning(false);
+    }
   };
 
   const toggleCategory = (cat: string) => {
@@ -164,6 +269,11 @@ const SourcesPage = () => {
       model: modelId,
     };
     if (apiKey.trim()) config.api_key = apiKey.trim();
+    if (sourceType === "Web Search") {
+      config.search_depth = searchDepth;
+      config.search_focus = searchFocus;
+      if (tavilyApiKey.trim()) config.tavily_api_key = tavilyApiKey.trim();
+    }
 
     const type = sourceOptionToType(sourceType);
 
@@ -231,8 +341,13 @@ const SourcesPage = () => {
           {sourceList.map((source) => {
             const cfg = (source.config || {}) as Record<string, unknown>;
             const topicStr = cfg.topic as string | undefined;
+            const nextRun = getNextRunTime(source);
             return (
-              <div key={source.id} className="post-card">
+              <div
+                key={source.id}
+                className="post-card cursor-pointer hover:bg-secondary/30 transition-colors"
+                onClick={() => openDetail(source)}
+              >
                 <div className="flex items-center gap-3">
                   <div
                     className={`p-2 rounded-full ${
@@ -246,7 +361,7 @@ const SourcesPage = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-[15px] text-foreground">{source.label}</span>
-                      <span className="source-badge source-badge-default">{source.type}</span>
+                      <span className="source-badge source-badge-default">{friendlyType(source.type)}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[13px] text-muted-foreground flex-wrap">
                       <span className={source.status === "active" ? "text-upvote" : ""}>
@@ -257,7 +372,15 @@ const SourcesPage = () => {
                       {source.schedule && (
                         <>
                           <span>·</span>
-                          <span>{source.schedule.replace(/_/g, " ")}</span>
+                          <span>{friendlySchedule(source.schedule)}</span>
+                        </>
+                      )}
+                      {nextRun && (
+                        <>
+                          <span>·</span>
+                          <span className="text-primary flex items-center gap-1">
+                            <Clock size={11} /> Next {nextRun}
+                          </span>
                         </>
                       )}
                     </div>
@@ -265,19 +388,167 @@ const SourcesPage = () => {
                       <p className="text-[12px] text-muted-foreground mt-0.5">Topic: {topicStr}</p>
                     )}
                   </div>
-                  <button
-                    onClick={() => openEdit(source)}
-                    className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
-                    title="Edit"
-                  >
-                    <Pencil size={16} />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEdit(source); }}
+                      className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <ChevronRight size={16} className="text-muted-foreground/50" />
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* ── Source Detail / Logs Dialog ── */}
+      <Dialog open={!!detailSource} onOpenChange={(open) => { if (!open) setDetailSource(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {detailSource && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle className="text-lg flex items-center gap-2">
+                      {detailSource.label}
+                      <span className="source-badge source-badge-default text-[12px]">
+                        {friendlyType(detailSource.type)}
+                      </span>
+                    </DialogTitle>
+                    <div className="flex items-center gap-2 mt-1 text-[13px] text-muted-foreground">
+                      <span className={detailSource.status === "active" ? "text-upvote" : ""}>
+                        {detailSource.status === "active" ? "Active" : "Paused"}
+                      </span>
+                      <span>·</span>
+                      <span>{friendlySchedule(detailSource.schedule || "daily")}</span>
+                      <span>·</span>
+                      <span>Last run {timeAgo(detailSource.last_run_at)}</span>
+                      {(() => {
+                        const nr = getNextRunTime(detailSource);
+                        return nr ? (
+                          <>
+                            <span>·</span>
+                            <span className="text-primary">Next {nr}</span>
+                          </>
+                        ) : null;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              {/* Action buttons */}
+              <div className="flex gap-2 mt-2">
+                <Button
+                  size="sm"
+                  className="gap-1.5 rounded-full font-bold"
+                  onClick={handleRunNow}
+                  disabled={running}
+                >
+                  {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                  {running ? "Running..." : "Run Now"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 rounded-full"
+                  onClick={() => { setDetailSource(null); openEdit(detailSource); }}
+                >
+                  <Pencil size={14} /> Edit
+                </Button>
+              </div>
+
+              {/* Run result */}
+              {runResult && (
+                <div className={`mt-3 p-3 rounded-lg border text-[13px] ${
+                  runResult.status === "error"
+                    ? "border-destructive/50 bg-destructive/5 text-destructive"
+                    : "border-upvote/50 bg-upvote/5 text-upvote"
+                }`}>
+                  {runResult.status === "error" ? (
+                    <div className="flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      <span>Error: {runResult.error}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={16} />
+                      <span>
+                        Fetched {runResult.fetched ?? 0} items
+                        {runResult.new != null && ` · ${runResult.new} new`}
+                        {" · "}{runResult.ingested ?? 0} ingested
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* News items / logs */}
+              <div className="mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText size={16} className="text-muted-foreground" />
+                  <h3 className="font-bold text-[14px] text-foreground">
+                    Fetched Items ({detailLoading ? "..." : detailNews.length})
+                  </h3>
+                </div>
+
+                {detailLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 size={20} className="animate-spin text-primary" />
+                  </div>
+                ) : detailNews.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-[13px]">
+                    No items fetched yet. Click "Run Now" to fetch.
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {detailNews.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-lg border border-border hover:border-foreground/20 transition-colors"
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-[13px] text-foreground leading-snug">
+                              {item.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                              <span>{item.source_label}</span>
+                              <span>·</span>
+                              <span>{timeAgo(item.ingested_at || item.published_at)}</span>
+                            </div>
+                            {item.summary && (
+                              <p className="text-[12px] text-muted-foreground mt-1 line-clamp-2">
+                                {item.summary}
+                              </p>
+                            )}
+                          </div>
+                          {item.url && (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Open article"
+                            >
+                              <ExternalLink size={14} />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── New / Edit Scout Source Dialog ── */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
@@ -373,6 +644,62 @@ const SourcesPage = () => {
               </div>
             )}
 
+            {/* Web Search (Tavily) options */}
+            {sourceType === "Web Search" && (
+              <div className="space-y-4 p-3.5 rounded-xl border border-border bg-secondary/30">
+                <div className="text-[12px] text-muted-foreground uppercase tracking-wider font-bold">
+                  Tavily Web Search Settings
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="font-semibold">Tavily API Key</Label>
+                  <div className="relative">
+                    <Input
+                      type={showTavilyKey ? "text" : "password"}
+                      placeholder="tvly-..."
+                      value={tavilyApiKey}
+                      onChange={(e) => setTavilyApiKey(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTavilyKey(!showTavilyKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      tabIndex={-1}
+                    >
+                      {showTavilyKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Leave blank to use the server default (TAVILY_API_KEY env).
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="font-semibold">Search Depth</Label>
+                    <Select value={searchDepth} onValueChange={(v: "basic" | "advanced") => setSearchDepth(v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basic">Basic</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="font-semibold">Search Focus</Label>
+                    <Select value={searchFocus} onValueChange={(v: "news" | "general") => setSearchFocus(v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="news">News</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Status (edit only) */}
             {editingSource && (
               <div className="space-y-1.5">
@@ -394,7 +721,6 @@ const SourcesPage = () => {
                 AI Model for Summarization
               </div>
 
-              {/* Provider tabs */}
               <div className="flex rounded-full border border-border overflow-hidden">
                 <button
                   type="button"
@@ -420,7 +746,6 @@ const SourcesPage = () => {
                 </button>
               </div>
 
-              {/* Model cards */}
               <div className="space-y-2">
                 {models.map((m) => {
                   const selected = modelId === m.id;
@@ -469,7 +794,7 @@ const SourcesPage = () => {
               <div className="relative">
                 <Input
                   type={showApiKey ? "text" : "password"}
-                  placeholder={modelProvider === "anthropic" ? "sk-ant-…" : "sk-proj-…"}
+                  placeholder={modelProvider === "anthropic" ? "sk-ant-..." : "sk-proj-..."}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   className="pr-10"

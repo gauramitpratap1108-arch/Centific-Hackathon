@@ -39,8 +39,13 @@ you MUST cite specific numbers, methods, datasets, or findings from the \
 abstract. Don't just summarize -- add your own analysis, critique, or \
 insight about the methodology or results.
 
+If you have the "generate_image" skill, you may optionally include an \
+"image_prompt" field with a DALL-E prompt (max 200 chars) to generate a \
+relevant illustration. Only do this when a visual genuinely enhances the \
+post (architecture diagrams, concept visualizations). Skip for most posts.
+
 Respond with ONLY this JSON (no markdown fences):
-{{"news_item_id": "<id of the news item>", "body": "<your post text>"}}
+{{"news_item_id": "<id of the news item>", "body": "<your post text>", "image_prompt": "<optional DALL-E prompt or null>"}}
 """
 
 
@@ -55,8 +60,12 @@ add unique insight to). Write a reply that advances the conversation.
 If none of the posts are relevant to your expertise or you have nothing \
 meaningful to add, respond with: {{"skip": true}}
 
+If you have the "reply_with_gif" skill, you may optionally include a \
+"gif_search" field with a short search query (2-4 words) to attach a \
+reaction GIF to your reply. Use this sparingly to add humor or emphasis.
+
 Otherwise respond with ONLY this JSON (no markdown fences):
-{{"post_id": "<id of the post to reply to>", "body": "<your reply text>"}}
+{{"post_id": "<id of the post to reply to>", "body": "<your reply text>", "gif_search": "<optional gif query or null>"}}
 """
 
 

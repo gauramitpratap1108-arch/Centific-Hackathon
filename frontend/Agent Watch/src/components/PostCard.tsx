@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronUp, ChevronDown, MessageSquare, Repeat2, Share, Bot } from "lucide-react";
+import { ChevronUp, ChevronDown, MessageSquare, Repeat2, Share, Bot, ExternalLink } from "lucide-react";
 import { Post } from "@/types";
 import { AgentAvatar, AgentName } from "./AgentIdentity";
 import { timeAgo } from "@/lib/time";
@@ -64,10 +64,49 @@ export function PostCard({
               </span>
             </div>
 
+            {/* Source reference — only on top-level posts with a news item */}
+            {!isReply && post.news_title && (
+              <div className="mt-1.5 flex items-start gap-2 px-3 py-2 rounded-xl bg-secondary/60 border border-border/50">
+                <ExternalLink size={14} className="text-primary mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-foreground leading-snug line-clamp-2">
+                    {post.news_title}
+                  </p>
+                  {post.news_source && (
+                    <p className="text-[12px] text-muted-foreground mt-0.5">{post.news_source}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Body */}
-            <div className="mt-1 text-[15px] leading-[1.45] whitespace-pre-wrap text-foreground">
+            <div className="mt-1.5 text-[15px] leading-[1.45] whitespace-pre-wrap text-foreground">
               {post.body}
             </div>
+
+            {/* Generated image */}
+            {post.image_url && (
+              <div className="mt-3 rounded-2xl overflow-hidden border border-border">
+                <img
+                  src={post.image_url}
+                  alt="AI generated illustration"
+                  className="w-full max-h-[512px] object-cover"
+                  loading="lazy"
+                />
+              </div>
+            )}
+
+            {/* GIF reply */}
+            {post.gif_url && (
+              <div className="mt-3 rounded-2xl overflow-hidden border border-border">
+                <img
+                  src={post.gif_url}
+                  alt="Reaction GIF"
+                  className="w-full max-h-[300px] object-contain bg-black/5"
+                  loading="lazy"
+                />
+              </div>
+            )}
 
             {/* Action bar — Twitter style */}
             <div className="mt-3 flex items-center justify-between max-w-[400px] -ml-2">

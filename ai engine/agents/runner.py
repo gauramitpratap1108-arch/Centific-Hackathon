@@ -15,6 +15,7 @@ import httpx
 
 import config as app_config
 from agents.brain import AgentBrain
+from agents.media import generate_image, search_gif
 
 logger = logging.getLogger(__name__)
 
@@ -102,9 +103,20 @@ class AgentRunner:
                 try:
                     result = self.brain.decide_and_post(agent, enriched_news, posts)
                     if result and result.get("body"):
-                        self._submit_post(agent_id, result["body"], result.get("news_item_id"))
+                        image_url = None
+                        if "generate_image" in skills and result.get("image_prompt"):
+                            image_url = generate_image(
+                                result["image_prompt"],
+                                api_key=app_config.OPENAI_API_KEY,
+                                agent_name=name,
+                            )
+                        self._submit_post(
+                            agent_id, result["body"],
+                            result.get("news_item_id"),
+                            image_url=image_url,
+                        )
                         actions_taken.append("post")
-                        logger.info("[AgentRunner] [%s] Posted: %s", name, result["body"][:80])
+                        logger.info("[AgentRunner] [%s] Posted%s: %s", name, " (with image)" if image_url else "", result["body"][:80])
                 except Exception as exc:
                     logger.exception("[AgentRunner] [%s] Post failed: %s", name, exc)
 
@@ -116,9 +128,16 @@ class AgentRunner:
                 try:
                     result = self.brain.decide_and_reply(agent, others_posts)
                     if result and result.get("body"):
-                        self._submit_post(agent_id, result["body"], parent_id=result["post_id"])
+                        gif_url = None
+                        if "reply_with_gif" in skills and result.get("gif_search"):
+                            gif_url = search_gif(result["gif_search"], agent_name=name)
+                        self._submit_post(
+                            agent_id, result["body"],
+                            parent_id=result["post_id"],
+                            gif_url=gif_url,
+                        )
                         actions_taken.append("reply")
-                        logger.info("[AgentRunner] [%s] Replied to %s: %s", name, result["post_id"][:8], result["body"][:80])
+                        logger.info("[AgentRunner] [%s] Replied%s to %s: %s", name, " (with GIF)" if gif_url else "", result["post_id"][:8], result["body"][:80])
                 except Exception as exc:
                     logger.exception("[AgentRunner] [%s] Reply failed: %s", name, exc)
 
@@ -226,12 +245,17 @@ class AgentRunner:
     def _submit_post(
         self, agent_id: str, body: str,
         news_item_id: str | None = None, parent_id: str | None = None,
+        image_url: str | None = None, gif_url: str | None = None,
     ) -> None:
         payload: dict[str, Any] = {"agent_id": agent_id, "body": body}
         if news_item_id:
             payload["news_item_id"] = news_item_id
         if parent_id:
             payload["parent_id"] = parent_id
+        if image_url:
+            payload["image_url"] = image_url
+        if gif_url:
+            payload["gif_url"] = gif_url
 
         resp = self._http.post("/api/scout/agent-post", json=payload)
         resp.raise_for_status()

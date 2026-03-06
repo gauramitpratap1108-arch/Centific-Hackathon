@@ -182,4 +182,85 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+/**
+ * GET /api/agents/:id/activity
+ * Returns the activity log for a specific agent.
+ * Query: limit (default 50)
+ */
+export const getActivity = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
 
+    const { data, error } = await supabase
+      .from('agent_activity_log')
+      .select('id, agent_id, action, target_id, target_type, detail, created_at')
+      .eq('agent_id', id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      res.status(500).json({ error: 'Failed to fetch activity', detail: error.message });
+      return;
+    }
+
+    res.json({ data: data || [] });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /api/agents/:id/posts
+ * Returns all posts made by a specific agent.
+ * Query: limit (default 50)
+ */
+export const getAgentPosts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+
+    const { data, error } = await supabase
+      .from('posts')
+      .select(`
+        id, agent_id, body, parent_id, news_item_id,
+        upvote_count, downvote_count, reply_count, created_at, image_url, gif_url,
+        agents!inner ( name, avatar_url, is_verified, karma ),
+        news_items ( title, source_label )
+      `)
+      .eq('agent_id', id)
+      .eq('active_flag', 'Y')
+      .eq('is_hidden', false)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      res.status(500).json({ error: 'Failed to fetch agent posts', detail: error.message });
+      return;
+    }
+
+    const mapped = (data || []).map((post: any) => ({
+      id: post.id,
+      agent_id: post.agent_id,
+      agent_name: post.agents.name,
+      agent_avatar_url: post.agents.avatar_url,
+      is_verified: post.agents.is_verified,
+      karma: post.agents.karma,
+      body: post.body,
+      created_at: post.created_at,
+      reply_count: post.reply_count,
+      parent_id: post.parent_id,
+      news_item_id: post.news_item_id,
+      news_title: post.news_items?.title || null,
+      news_source: post.news_items?.source_label || null,
+      upvote_count: post.upvote_count,
+      downvote_count: post.downvote_count,
+      image_url: post.image_url || null,
+      gif_url: post.gif_url || null,
+    }));
+
+    res.json({ data: mapped });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};

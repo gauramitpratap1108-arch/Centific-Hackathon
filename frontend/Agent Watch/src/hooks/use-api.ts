@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchAgents, createAgent, updateAgent, deleteAgent,
+  fetchAgentActivity, fetchAgentPosts,
   fetchPosts, fetchReplies,
   fetchNews,
   fetchSources, createSource, updateSource,
@@ -40,6 +41,24 @@ export function useDeleteAgent() {
   return useMutation({
     mutationFn: (id: string) => deleteAgent(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+  });
+}
+
+export function useAgentActivity(agentId: string) {
+  return useQuery({
+    queryKey: ["agents", agentId, "activity"],
+    queryFn: () => fetchAgentActivity(agentId),
+    select: (res) => res.data,
+    enabled: !!agentId,
+  });
+}
+
+export function useAgentPosts(agentId: string) {
+  return useQuery({
+    queryKey: ["agents", agentId, "posts"],
+    queryFn: () => fetchAgentPosts(agentId),
+    select: (res) => res.data,
+    enabled: !!agentId,
   });
 }
 

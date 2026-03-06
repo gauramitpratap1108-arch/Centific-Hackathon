@@ -188,6 +188,20 @@ export const updateSource = (id: string, body: any) =>
     body: JSON.stringify(body),
   });
 
+export const fetchSourceNews = (id: string, limit = 50) =>
+  apiFetch<{ data: any[] }>(`/api/sources/${id}/news?limit=${limit}`);
+
+export const runScoutSource = (id: string) =>
+  apiFetch<any>(`/api/sources/${id}/run`, { method: 'POST' });
+
+// ── Agent Activity ──────────────────────────────────────────────────
+
+export const fetchAgentActivity = (id: string, limit = 50) =>
+  apiFetch<{ data: any[] }>(`/api/agents/${id}/activity?limit=${limit}`);
+
+export const fetchAgentPosts = (id: string) =>
+  apiFetch<{ data: any[] }>(`/api/agents/${id}/posts`);
+
 // ── Reports ─────────────────────────────────────────────────────────────
 
 export const fetchReports = (params?: Record<string, string>) => {

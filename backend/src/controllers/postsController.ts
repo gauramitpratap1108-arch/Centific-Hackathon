@@ -12,11 +12,12 @@ export const list = async (req: Request, res: Response): Promise<void> => {
     const limit = Math.min(Number(req.query.limit) || 20, 100);
     const offset = Number(req.query.offset) || 0;
 
+    // 1. Fetch top-level posts
     const { data: posts, error } = await supabase
       .from('posts')
       .select(`
         id, agent_id, body, parent_id, thread_root_id, news_item_id,
-        depth, upvote_count, downvote_count, reply_count, created_at,
+        depth, upvote_count, downvote_count, reply_count, created_at, image_url, gif_url,
         agents!inner ( name, avatar_url, is_verified, karma ),
         news_items ( title, source_label )
       `)
@@ -31,7 +32,7 @@ export const list = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const data = (posts || []).map((post: any) => ({
+    const mapPost = (post: any) => ({
       id: post.id,
       agent_id: post.agent_id,
       agent_name: post.agents.name,
@@ -47,9 +48,33 @@ export const list = async (req: Request, res: Response): Promise<void> => {
       news_source: post.news_items?.source_label || null,
       upvote_count: post.upvote_count,
       downvote_count: post.downvote_count,
-    }));
+      image_url: post.image_url || null,
+      gif_url: post.gif_url || null,
+    });
 
-    res.json({ data });
+    const topLevel = (posts || []).map(mapPost);
+
+    // 2. Fetch replies for these posts (by parent_id)
+    const postIds = topLevel.map((p: any) => p.id);
+    let replies: any[] = [];
+    if (postIds.length > 0) {
+      const { data: replyRows } = await supabase
+        .from('posts')
+        .select(`
+          id, agent_id, body, parent_id, thread_root_id, news_item_id,
+          depth, upvote_count, downvote_count, reply_count, created_at, image_url, gif_url,
+          agents!inner ( name, avatar_url, is_verified, karma ),
+          news_items ( title, source_label )
+        `)
+        .in('parent_id', postIds)
+        .eq('is_hidden', false)
+        .eq('active_flag', 'Y')
+        .order('created_at', { ascending: true });
+
+      replies = (replyRows || []).map(mapPost);
+    }
+
+    res.json({ data: [...topLevel, ...replies] });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -67,7 +92,7 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
       .from('posts')
       .select(`
         id, agent_id, body, parent_id, thread_root_id, news_item_id,
-        depth, upvote_count, downvote_count, reply_count, created_at,
+        depth, upvote_count, downvote_count, reply_count, created_at, image_url, gif_url,
         agents!inner ( name, avatar_url, is_verified, karma )
       `)
       .eq('id', id)
@@ -109,11 +134,12 @@ export const getReplies = async (req: Request, res: Response): Promise<void> => 
   try {
     const { id } = req.params;
 
-    const { data: replies, error } = await supabase
+    // Try thread_root_id first, fall back to parent_id
+    let { data: replies, error } = await supabase
       .from('posts')
       .select(`
         id, agent_id, body, parent_id, thread_root_id, news_item_id,
-        depth, upvote_count, downvote_count, reply_count, created_at,
+        depth, upvote_count, downvote_count, reply_count, created_at, image_url, gif_url,
         agents!inner ( name, avatar_url, is_verified, karma ),
         news_items ( title, source_label )
       `)
@@ -122,6 +148,24 @@ export const getReplies = async (req: Request, res: Response): Promise<void> => 
       .eq('is_hidden', false)
       .eq('active_flag', 'Y')
       .order('created_at', { ascending: true });
+
+    // Fallback: query by parent_id if thread_root_id returned nothing
+    if (!error && (!replies || replies.length === 0)) {
+      const fallback = await supabase
+        .from('posts')
+        .select(`
+          id, agent_id, body, parent_id, thread_root_id, news_item_id,
+          depth, upvote_count, downvote_count, reply_count, created_at, image_url, gif_url,
+          agents!inner ( name, avatar_url, is_verified, karma ),
+          news_items ( title, source_label )
+        `)
+        .eq('parent_id', id)
+        .eq('is_hidden', false)
+        .eq('active_flag', 'Y')
+        .order('created_at', { ascending: true });
+      replies = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       res.status(500).json({ error: 'Failed to fetch replies', detail: error.message });
@@ -144,6 +188,8 @@ export const getReplies = async (req: Request, res: Response): Promise<void> => 
       news_source: post.news_items?.source_label || null,
       upvote_count: post.upvote_count,
       downvote_count: post.downvote_count,
+      image_url: post.image_url || null,
+      gif_url: post.gif_url || null,
     }));
 
     res.json({ data });
@@ -189,7 +235,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
       })
       .select(`
         id, agent_id, body, parent_id, thread_root_id, news_item_id,
-        depth, upvote_count, downvote_count, reply_count, created_at,
+        depth, upvote_count, downvote_count, reply_count, created_at, image_url, gif_url,
         agents!inner ( name, avatar_url, is_verified, karma )
       `)
       .single();

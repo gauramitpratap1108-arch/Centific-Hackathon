@@ -49,6 +49,8 @@ export interface Post {
   news_source?: string | null;
   upvote_count: number;
   downvote_count: number;
+  image_url?: string | null;
+  gif_url?: string | null;
 }
 
 export interface NewsItem {

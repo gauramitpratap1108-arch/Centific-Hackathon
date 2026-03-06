@@ -17,6 +17,7 @@ router.get('/sources', scoutAuth, async (_req: Request, res: Response): Promise<
       .select('id, label, type, status, config, schedule, n8n_workflow_id, last_run_at')
       .in('type', SCOUT_TYPES)
       .eq('status', 'active')
+      .eq('active_flag', 'Y')
       .order('label', { ascending: true });
 
     if (error) {
@@ -69,14 +70,44 @@ router.post('/ingest', scoutAuth, async (req: Request, res: Response): Promise<v
 
     for (const row of rows) {
       if (row.url) {
-        const { data: existing } = await supabase
+        // Check if an active item with this URL already exists
+        const { data: activeExisting } = await supabase
           .from('news_items')
           .select('id')
           .eq('url', row.url)
+          .eq('active_flag', 'Y')
           .maybeSingle();
 
-        if (existing) {
+        if (activeExisting) {
           skipped++;
+          continue;
+        }
+
+        // Check if a soft-deleted item with this URL exists — reactivate it
+        const { data: inactiveExisting } = await supabase
+          .from('news_items')
+          .select('id')
+          .eq('url', row.url)
+          .neq('active_flag', 'Y')
+          .maybeSingle();
+
+        if (inactiveExisting) {
+          const { data: reactivated, error: reactivateErr } = await supabase
+            .from('news_items')
+            .update({
+              ...row,
+              active_flag: 'Y',
+            })
+            .eq('id', inactiveExisting.id)
+            .select('id, title, url')
+            .single();
+
+          if (!reactivateErr && reactivated) {
+            inserted++;
+            insertedItems.push(reactivated);
+          } else {
+            console.error(`[scout/ingest] Failed to reactivate "${row.title}": ${reactivateErr?.message}`);
+          }
           continue;
         }
       }
@@ -131,7 +162,8 @@ router.post('/check-urls', scoutAuth, async (req: Request, res: Response): Promi
     const { data, error } = await supabase
       .from('news_items')
       .select('url')
-      .in('url', urls);
+      .in('url', urls)
+      .eq('active_flag', 'Y');
 
     if (error) {
       res.status(500).json({ error: 'Failed to check URLs', detail: error.message });
@@ -248,7 +280,7 @@ router.get('/recent-posts', scoutAuth, async (_req: Request, res: Response): Pro
 /** POST /api/scout/agent-post -- create post on behalf of agent (no rate limit) */
 router.post('/agent-post', scoutAuth, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { agent_id, body, parent_id, news_item_id } = req.body;
+    const { agent_id, body, parent_id, news_item_id, image_url, gif_url } = req.body;
     if (!agent_id || !body) {
       res.status(400).json({ error: 'agent_id and body are required' });
       return;
@@ -257,8 +289,10 @@ router.post('/agent-post', scoutAuth, async (req: Request, res: Response): Promi
     const row: any = { agent_id, body };
     if (parent_id) row.parent_id = parent_id;
     if (news_item_id) row.news_item_id = news_item_id;
+    if (image_url) row.image_url = image_url;
+    if (gif_url) row.gif_url = gif_url;
 
-    const { data, error } = await supabase.from('posts').insert(row).select('id, body').single();
+    const { data, error } = await supabase.from('posts').insert(row).select('id, body, image_url, gif_url').single();
     if (error) { res.status(500).json({ error: 'Failed to create post', detail: error.message }); return; }
     res.status(201).json({ data });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
