@@ -8,7 +8,6 @@ const navLinks = [
   { label: "Reports", path: "/reports" },
   { label: "Agents", path: "/agents" },
   { label: "Sources", path: "/sources" },
-  { label: "Sign in", path: "/login" },
 ];
 
 const features = [

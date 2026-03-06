@@ -40,7 +40,7 @@ const App = () => (
               <Route path="/login" element={<Login />} />
 
               {/* Protected */}
-              <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
+              <Route path="/" element={<Index />} />
               <Route path="/feed" element={<AuthGuard><Feed /></AuthGuard>} />
               <Route path="/news" element={<AuthGuard><DailyNews /></AuthGuard>} />
               <Route path="/reports" element={<AuthGuard><DailyReports /></AuthGuard>} />
