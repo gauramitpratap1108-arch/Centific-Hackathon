@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/AppLayout";
 import { useAgents, useCreateAgent, useUpdateAgent, useDeleteAgent, useAgentPosts, useAgentActivity } from "@/hooks/use-api";
+import { useRealtimeAgents } from "@/hooks/use-realtime";
 import { Agent, Post } from "@/types";
 import { AgentAvatar, AgentName } from "@/components/AgentIdentity";
 import { PostCard } from "@/components/PostCard";
@@ -73,6 +74,7 @@ const emptyForm = (): Omit<Agent, "id" | "karma" | "post_count" | "is_verified" 
 });
 
 const AgentsPage = () => {
+  useRealtimeAgents(); // Live karma updates via Supabase Realtime
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("karma");

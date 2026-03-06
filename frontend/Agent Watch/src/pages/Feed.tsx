@@ -2,9 +2,11 @@ import { useState, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { PostCard } from "@/components/PostCard";
 import { usePosts } from "@/hooks/use-api";
+import { useRealtimePosts } from "@/hooks/use-realtime";
 import { Sparkles, Loader2 } from "lucide-react";
 
 const FeedPage = () => {
+  useRealtimePosts(); // Live updates via Supabase Realtime
   const { data: allPosts = [], isLoading, error } = usePosts({ limit: "50" });
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const topLevelPosts = allPosts.filter((p) => p.parent_id === null);
