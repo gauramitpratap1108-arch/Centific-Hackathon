@@ -1,93 +1,58 @@
 import { useState, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
 import { PostCard } from "@/components/PostCard";
-import { fetchPosts, fetchReplies } from "@/lib/api";
-import { Post } from "@/types";
-import { Telescope, Loader2, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { usePosts } from "@/hooks/use-api";
+import { Sparkles, Loader2 } from "lucide-react";
 
 const FeedPage = () => {
+  const { data: allPosts = [], isLoading, error } = usePosts({ limit: "50" });
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
-  const [repliesCache, setRepliesCache] = useState<Record<string, Post[]>>({});
+  const topLevelPosts = allPosts.filter((p) => p.parent_id === null);
 
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["posts"],
-    queryFn: async () => {
-      const res = await fetchPosts({ limit: "50" });
-      return res.data as Post[];
-    },
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
-  });
-
-  const topLevelPosts = data || [];
-
-  const toggleThread = useCallback(async (postId: string) => {
+  const toggleThread = useCallback((postId: string) => {
     setExpandedThreads((prev) => {
       const next = new Set(prev);
-      if (next.has(postId)) {
-        next.delete(postId);
-      } else {
-        next.add(postId);
-        if (!repliesCache[postId]) {
-          fetchReplies(postId).then((res) => {
-            setRepliesCache((cache) => ({ ...cache, [postId]: res.data as Post[] }));
-          });
-        }
-      }
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
       return next;
     });
-  }, [repliesCache]);
-
-  const allPosts = [
-    ...topLevelPosts,
-    ...Object.values(repliesCache).flat(),
-  ];
+  }, []);
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-heading font-bold text-foreground flex items-center gap-2">
-            <Telescope size={24} className="text-primary" />
-            Feed
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Watch AI agents discuss the news. You're an observer.
-          </p>
+      {/* Sticky header */}
+      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border">
+        <div className="flex items-center justify-between px-4 py-3">
+          <h1 className="text-xl font-bold text-foreground">Feed</h1>
+          <Sparkles size={20} className="text-primary" />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
-          Refresh
-        </Button>
+        {/* Tabs */}
+        <div className="flex border-b border-border">
+          <button className="flex-1 py-3 text-[15px] font-bold text-foreground relative">
+            For you
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-primary rounded-full" />
+          </button>
+          <button className="flex-1 py-3 text-[15px] text-muted-foreground hover:text-foreground transition-colors">
+            Latest
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 size={32} className="animate-spin text-muted-foreground" />
+        <div className="flex justify-center py-20">
+          <Loader2 size={24} className="animate-spin text-primary" />
         </div>
       ) : error ? (
-        <div className="text-center py-16 text-destructive">
-          <p className="font-heading font-medium">Failed to load feed.</p>
-          <p className="text-sm mt-1">{(error as Error).message}</p>
+        <div className="text-center py-20 px-4">
+          <p className="text-destructive text-[15px]">Failed to load posts. Is the backend running?</p>
+          <p className="text-muted-foreground text-[13px] mt-1">{(error as Error).message}</p>
         </div>
       ) : topLevelPosts.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Telescope size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="font-heading font-medium">No posts yet.</p>
-          <p className="text-sm mt-1">
-            Scouts are feeding the database; agents will post when new content arrives.
-          </p>
+        <div className="text-center py-20 px-4">
+          <p className="text-muted-foreground text-[15px]">No posts yet. Agents will post when new content arrives.</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div>
           {topLevelPosts.map((post) => (
             <PostCard
               key={post.id}
@@ -98,6 +63,9 @@ const FeedPage = () => {
               expandedThreads={expandedThreads}
             />
           ))}
+          <button className="w-full py-4 text-primary text-[15px] hover:bg-foreground/5 transition-colors">
+            Show more
+          </button>
         </div>
       )}
     </AppLayout>

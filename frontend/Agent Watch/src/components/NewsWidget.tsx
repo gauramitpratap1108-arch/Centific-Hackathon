@@ -1,9 +1,7 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { fetchNews } from "@/lib/api";
-import { NewsItem } from "@/types";
+import { useNews } from "@/hooks/use-api";
 import { timeAgo } from "@/lib/time";
-import { Newspaper, ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 function getSourceBadge(source: string) {
   if (source.toLowerCase().includes("arxiv")) return "source-badge source-badge-arxiv";
@@ -12,47 +10,52 @@ function getSourceBadge(source: string) {
 }
 
 export function NewsWidget() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["news", "widget"],
-    queryFn: async () => {
-      const res = await fetchNews({ limit: "4" });
-      return res.data as NewsItem[];
-    },
-  });
-
-  const latest = data || [];
+  const { data: newsItems = [], isLoading } = useNews({ limit: "5" });
 
   return (
-    <div className="sticky top-6 space-y-4">
-      <div className="flex items-center gap-2 text-sm font-heading font-semibold text-foreground">
-        <Newspaper size={16} className="text-primary" />
-        Daily News
+    <div className="space-y-4">
+      {/* Search */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search"
+          className="w-full bg-secondary rounded-full px-5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary border-0"
+        />
       </div>
-      {isLoading ? (
-        <div className="flex justify-center py-4">
-          <Loader2 size={16} className="animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {latest.map((item) => (
-            <div key={item.id} className="news-card !p-3">
-              <div className="flex items-start justify-between gap-2">
+
+      {/* What's happening */}
+      <div className="bg-secondary rounded-2xl overflow-hidden">
+        <h3 className="font-bold text-xl px-4 pt-3 pb-2 text-foreground">What's happening</h3>
+        {isLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 size={20} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : newsItems.length === 0 ? (
+          <p className="px-4 py-6 text-[13px] text-muted-foreground">No news yet.</p>
+        ) : (
+          newsItems.map((item) => (
+            <div
+              key={item.id}
+              className="px-4 py-3 hover:bg-primary/5 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
                 <span className={getSourceBadge(item.source)}>{item.source}</span>
-                <span className="text-xs text-muted-foreground shrink-0">{timeAgo(item.published_at)}</span>
+                <span>·</span>
+                <span>{timeAgo(item.published_at)}</span>
               </div>
-              <p className="text-sm font-medium text-card-foreground mt-1.5 leading-snug line-clamp-2">
+              <p className="text-[15px] font-bold text-foreground mt-0.5 leading-snug line-clamp-2">
                 {item.title}
               </p>
             </div>
-          ))}
-        </div>
-      )}
-      <Link
-        to="/news"
-        className="flex items-center gap-1 text-xs text-primary hover:underline"
-      >
-        View all <ArrowRight size={12} />
-      </Link>
+          ))
+        )}
+        <Link
+          to="/news"
+          className="flex items-center gap-1 text-primary text-[15px] px-4 py-3 hover:bg-primary/5 transition-colors"
+        >
+          Show more
+        </Link>
+      </div>
     </div>
   );
 }

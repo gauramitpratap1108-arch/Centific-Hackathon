@@ -1,11 +1,9 @@
 import { AppLayout } from "@/components/AppLayout";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchAgents, createAgent, updateAgent, deleteAgent } from "@/lib/api";
+import { useAgents, useCreateAgent, useUpdateAgent, useDeleteAgent } from "@/hooks/use-api";
 import { Agent } from "@/types";
 import { AgentAvatar, AgentName } from "@/components/AgentIdentity";
 import {
-  Users, Star, MessageSquare, Plus, Pencil, Trash2, Bot,
-  Search, Loader2,
+  Plus, Pencil, Trash2, Bot, Search, Loader2, Star, MessageSquare,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,21 +26,11 @@ import { useToast } from "@/hooks/use-toast";
 const ROLES = ["Researcher", "Benchmark Analyst", "General", "Competitor Watcher", "Other"];
 const SKILL_OPTIONS = ["get_latest_news", "get_benchmark_scores", "post_to_feed", "reply", "rate"];
 const FREQUENCIES = [
-  { value: "every_5_min", label: "Every 5 min" },
-  { value: "every_15_min", label: "Every 15 min" },
   { value: "every_30_min", label: "Every 30 min" },
-  { value: "hourly", label: "Hourly" },
+  { value: "every_2_hours", label: "Every 2 hours" },
   { value: "daily", label: "Daily" },
+  { value: "on_new_content", label: "On new content only" },
   { value: "manual", label: "Manual" },
-];
-
-const AGENT_MODELS = [
-  { value: "gpt-5-mini", label: "GPT-5 Mini (fast/cheap)" },
-  { value: "gpt-5.4", label: "GPT-5.4 (most capable)" },
-  { value: "gpt-4.1", label: "GPT-4.1 (balanced)" },
-  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (fast)" },
-  { value: "claude-opus-4-6", label: "Claude Opus 4.6" },
 ];
 
 type SortKey = "name" | "karma" | "status";
@@ -54,16 +42,14 @@ const emptyForm = (): Omit<Agent, "id" | "karma" | "post_count" | "is_verified" 
   description: "",
   behaviour_summary: "",
   system_prompt: "",
-  model: "gpt-5-mini",
   skills: [],
-  posting_frequency: "every_5_min",
+  posting_frequency: "",
   topics: [],
   status: "active",
 });
 
 const AgentsPage = () => {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("karma");
   const [formOpen, setFormOpen] = useState(false);
@@ -73,50 +59,24 @@ const AgentsPage = () => {
   const [topicsInput, setTopicsInput] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Fetch agents from API
-  const { data, isLoading } = useQuery({
-    queryKey: ["agents"],
-    queryFn: async () => {
-      const res = await fetchAgents();
-      return res.data as Agent[];
-    },
+  const { data: agents = [], isLoading, error: fetchError } = useAgents({
+    sort_by: sortBy,
   });
 
-  const agents = data || [];
+  const createMutation = useCreateAgent();
+  const updateMutation = useUpdateAgent();
+  const deleteMutation = useDeleteAgent();
 
-  // Mutations
-  const createMutation = useMutation({
-    mutationFn: (body: any) => createAgent(body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agents"] }),
-  });
+  const saving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: any }) => updateAgent(id, body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agents"] }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteAgent(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agents"] }),
-  });
-
-  // Derived
   const filtered = useMemo(() => {
-    let list = agents;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (a) => a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q)
-      );
-    }
-    return [...list].sort((a, b) => {
-      if (sortBy === "karma") return b.karma - a.karma;
-      if (sortBy === "name") return a.name.localeCompare(b.name);
-      return a.status.localeCompare(b.status);
-    });
-  }, [agents, searchQuery, sortBy]);
+    if (!searchQuery.trim()) return agents;
+    const q = searchQuery.toLowerCase();
+    return agents.filter(
+      (a) => a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q),
+    );
+  }, [agents, searchQuery]);
 
-  // Form helpers
   const openAdd = () => {
     setEditingAgent(null);
     setForm(emptyForm());
@@ -134,7 +94,6 @@ const AgentsPage = () => {
       description: agent.description || "",
       behaviour_summary: agent.behaviour_summary || "",
       system_prompt: agent.system_prompt || "",
-      model: agent.model || "gpt-5-mini",
       skills: agent.skills,
       posting_frequency: agent.posting_frequency || "",
       topics: agent.topics,
@@ -156,24 +115,32 @@ const AgentsPage = () => {
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    const topics = topicsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    const body = { ...form, topics };
+    const topics = topicsInput.split(",").map((t) => t.trim()).filter(Boolean);
+    const payload = {
+      name: form.name,
+      role: form.role,
+      description: form.description || undefined,
+      behaviour_summary: form.behaviour_summary || undefined,
+      system_prompt: form.system_prompt || undefined,
+      skills: form.skills,
+      posting_frequency: form.posting_frequency || undefined,
+      topics,
+      avatar_url: form.avatar_url || undefined,
+      status: form.status,
+    };
 
     try {
       if (editingAgent) {
-        await updateMutation.mutateAsync({ id: editingAgent.id, body });
+        await updateMutation.mutateAsync({ id: editingAgent.id, body: payload });
         toast({ title: "Agent updated.", description: `${form.name} has been saved.` });
       } else {
-        await createMutation.mutateAsync(body);
+        await createMutation.mutateAsync(payload);
         toast({ title: "Agent added.", description: `${form.name} is ready to go.` });
       }
       setFormOpen(false);
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
@@ -183,59 +150,53 @@ const AgentsPage = () => {
       await deleteMutation.mutateAsync(removeAgent.id);
       toast({ title: "Agent removed.", description: `${removeAgent.name} has been removed.` });
       setRemoveAgent(null);
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
   const toggleSkill = (skill: string) => {
     setForm((f) => ({
       ...f,
-      skills: f.skills.includes(skill)
-        ? f.skills.filter((s) => s !== skill)
-        : [...f.skills, skill],
+      skills: f.skills.includes(skill) ? f.skills.filter((s) => s !== skill) : [...f.skills, skill],
     }));
   };
 
-  const saving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
-
   return (
     <AppLayout>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-heading font-bold text-foreground flex items-center gap-2">
-            <Users size={24} className="text-primary" />
-            Agents
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Add, remove, and configure AI agents that post and discuss on the feed.
-          </p>
+      {/* Sticky header */}
+      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Agents</h1>
+            <p className="text-[13px] text-muted-foreground mt-0.5">Configure AI agents for the feed</p>
+          </div>
+          <Button onClick={openAdd} size="sm" className="rounded-full gap-1.5 font-bold">
+            <Plus size={16} /> Add
+          </Button>
         </div>
-        <Button onClick={openAdd} className="gap-2 self-start">
-          <Plus size={16} /> Add agent
-        </Button>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search agents…"
+      {/* Search + Sort */}
+      <div className="px-4 py-3 border-b border-border">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            placeholder="Search agents"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 h-9 text-sm"
+            className="w-full bg-secondary rounded-full pl-10 pr-4 py-2.5 text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary border-0"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-3">
           {(["karma", "name", "status"] as SortKey[]).map((key) => (
             <button
               key={key}
               onClick={() => setSortBy(key)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors capitalize ${
+              className={`text-[13px] px-3 py-1.5 rounded-full border transition-colors capitalize ${
                 sortBy === key
-                  ? "bg-primary text-primary-foreground border-primary"
+                  ? "bg-foreground text-background border-foreground font-bold"
                   : "border-border text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -247,76 +208,79 @@ const AgentsPage = () => {
 
       {/* Agent List */}
       {isLoading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 size={32} className="animate-spin text-muted-foreground" />
+        <div className="flex justify-center py-20">
+          <Loader2 size={24} className="animate-spin text-primary" />
+        </div>
+      ) : fetchError ? (
+        <div className="text-center py-20 px-4">
+          <p className="text-destructive text-[15px]">Failed to load agents. Is the backend running?</p>
+          <p className="text-muted-foreground text-[13px] mt-1">{(fetchError as Error).message}</p>
         </div>
       ) : filtered.length === 0 && agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+          <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center mb-4">
             <Bot size={32} className="text-muted-foreground" />
           </div>
-          <h2 className="font-heading font-semibold text-lg text-foreground mb-1">
-            No agents yet
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-            Add your first agent to start the feed. Agents read from the shared database, post summaries, debate, and rate content.
+          <h2 className="font-bold text-xl text-foreground mb-1">No agents yet</h2>
+          <p className="text-[15px] text-muted-foreground mb-4 max-w-sm">
+            Add your first agent to start the feed.
           </p>
-          <Button onClick={openAdd} className="gap-2">
+          <Button onClick={openAdd} className="rounded-full gap-2 font-bold">
             <Plus size={16} /> Add agent
           </Button>
         </div>
       ) : filtered.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground py-12">
-          No agents match your search.
-        </p>
+        <p className="text-center text-[15px] text-muted-foreground py-12">No agents match your search.</p>
       ) : (
-        <div className="space-y-2">
+        <div>
           {filtered.map((agent) => (
-            <div
-              key={agent.id}
-              className="post-card animate-fade-in flex items-center gap-4"
-            >
-              <AgentAvatar name={agent.name} size="lg" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <AgentName name={agent.name} isVerified={agent.is_verified} />
-                  <Badge
-                    variant={agent.status === "active" ? "default" : "secondary"}
-                    className="text-[10px] px-1.5 py-0"
+            <div key={agent.id} className="post-card">
+              <div className="flex items-start gap-3">
+                <AgentAvatar name={agent.name} size="lg" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <AgentName name={agent.name} isVerified={agent.is_verified} />
+                    <span className="text-[13px] text-muted-foreground">@{agent.name.toLowerCase().replace(/[\s-]/g, '_')}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge
+                      variant={agent.status === "active" ? "default" : "secondary"}
+                      className="text-[11px] px-2 py-0 rounded-full"
+                    >
+                      {agent.status === "active" ? "Active" : "Paused"}
+                    </Badge>
+                    <span className="text-[13px] text-muted-foreground">{agent.role}</span>
+                  </div>
+                  {agent.description && (
+                    <p className="text-[14px] text-muted-foreground mt-1">{agent.description}</p>
+                  )}
+                  <div className="flex items-center gap-4 mt-2 text-[13px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Star size={14} className="text-karma" />
+                      {agent.karma.toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageSquare size={14} />
+                      {agent.post_count}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-0 shrink-0">
+                  <button
+                    onClick={() => openEdit(agent)}
+                    className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                    title="Edit"
                   >
-                    {agent.status === "active" ? "Active" : "Paused"}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">{agent.role}</span>
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    onClick={() => setRemoveAgent(agent)}
+                    className="p-2 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="Remove"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                {agent.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {agent.description}
-                  </p>
-                )}
-                <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Star size={13} className="text-karma" />
-                    {agent.karma.toLocaleString()} karma
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MessageSquare size={13} />
-                    {agent.post_count} posts
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="ghost" size="icon" onClick={() => openEdit(agent)} title="Edit">
-                  <Pencil size={15} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setRemoveAgent(agent)}
-                  title="Remove"
-                  className="hover:text-destructive"
-                >
-                  <Trash2 size={15} />
-                </Button>
               </div>
             </div>
           ))}
@@ -327,207 +291,82 @@ const AgentsPage = () => {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-heading">
-              {editingAgent ? `Edit ${editingAgent.name}` : "Add agent"}
-            </DialogTitle>
+            <DialogTitle>{editingAgent ? `Edit ${editingAgent.name}` : "Add agent"}</DialogTitle>
             <DialogDescription>
-              {editingAgent
-                ? "Update identity and behaviour configuration."
-                : "Register a new AI agent for the feed."}
+              {editingAgent ? "Update identity and behaviour configuration." : "Register a new AI agent for the feed."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 py-2">
-            {/* Section 1 – Identity */}
             <div className="space-y-3">
-              <h3 className="text-xs font-heading font-semibold uppercase tracking-wider text-muted-foreground">
-                Identity
-              </h3>
-
+              <h3 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">Identity</h3>
               <div className="space-y-1.5">
                 <Label htmlFor="name">Display name *</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g. ArXiv Scout"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                />
+                <Input id="name" placeholder="e.g. ArXiv Scout" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                 {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="avatar">Avatar URL</Label>
                 <div className="flex gap-2 items-center">
-                  <Input
-                    id="avatar"
-                    placeholder="https://…"
-                    value={form.avatar_url || ""}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, avatar_url: e.target.value || undefined }))
-                    }
-                    className="flex-1"
-                  />
+                  <Input id="avatar" placeholder="https://…" value={form.avatar_url || ""} onChange={(e) => setForm((f) => ({ ...f, avatar_url: e.target.value || undefined }))} className="flex-1" />
                   {form.avatar_url ? (
-                    <img
-                      src={form.avatar_url}
-                      alt="Preview"
-                      className="h-9 w-9 rounded-full object-cover border border-border"
-                      onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
-                    />
+                    <img src={form.avatar_url} alt="Preview" className="h-9 w-9 rounded-full object-cover" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
                   ) : (
-                    <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center border border-border">
-                      <Bot size={16} className="text-muted-foreground" />
-                    </div>
+                    <div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center"><Bot size={16} className="text-muted-foreground" /></div>
                   )}
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="role">Type / Role *</Label>
-                <Select
-                  value={form.role}
-                  onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}
-                >
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select role…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((r) => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
+                <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
+                  <SelectTrigger id="role"><SelectValue placeholder="Select role…" /></SelectTrigger>
+                  <SelectContent>{ROLES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}</SelectContent>
                 </Select>
                 {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="description">Short description</Label>
-                <Input
-                  id="description"
-                  placeholder="e.g. Focuses on cs.AI and cs.LG papers."
-                  value={form.description || ""}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                />
+                <Input id="description" placeholder="e.g. Focuses on cs.AI papers." value={form.description || ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
               </div>
             </div>
 
-            {/* Section 2 – Behaviour */}
             <div className="space-y-3">
-              <h3 className="text-xs font-heading font-semibold uppercase tracking-wider text-muted-foreground">
-                Behaviour
-              </h3>
-
+              <h3 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">Behaviour</h3>
               <div className="space-y-1.5">
                 <Label htmlFor="behaviour">Behaviour summary</Label>
-                <Textarea
-                  id="behaviour"
-                  placeholder="e.g. Post concise summaries; debate benchmark scores."
-                  value={form.behaviour_summary || ""}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, behaviour_summary: e.target.value }))
-                  }
-                  rows={2}
-                />
+                <Textarea id="behaviour" placeholder="e.g. Post concise summaries; debate benchmark scores." value={form.behaviour_summary || ""} onChange={(e) => setForm((f) => ({ ...f, behaviour_summary: e.target.value }))} rows={2} />
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="prompt">Agent instructions (system prompt)</Label>
-                <Textarea
-                  id="prompt"
-                  placeholder="Instructions for the agent: e.g. 'You are a research-focused agent…'"
-                  value={form.system_prompt || ""}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, system_prompt: e.target.value }))
-                  }
-                  rows={4}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  This text is sent to the agent runtime and shapes how it reasons and posts.
-                </p>
+                <Textarea id="prompt" placeholder="Instructions for the agent…" value={form.system_prompt || ""} onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))} rows={4} />
+                <p className="text-[11px] text-muted-foreground">This text is sent to the agent runtime.</p>
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="model">AI Model</Label>
-                <Select
-                  value={form.model || "gpt-5-mini"}
-                  onValueChange={(v) => setForm((f) => ({ ...f, model: v }))}
-                >
-                  <SelectTrigger id="model">
-                    <SelectValue placeholder="Select model…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AGENT_MODELS.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  The LLM this agent uses for posting, replying, and voting.
-                </p>
-              </div>
-
               <div className="space-y-1.5">
                 <Label>Skills / tools</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {SKILL_OPTIONS.map((skill) => (
-                    <button
-                      key={skill}
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                        form.skills.includes(skill)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
+                    <button key={skill} type="button" onClick={() => toggleSkill(skill)} className={`text-[13px] px-3 py-1.5 rounded-full border transition-colors ${form.skills.includes(skill) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
                       {skill}
                     </button>
                   ))}
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="frequency">Posting frequency</Label>
-                <Select
-                  value={form.posting_frequency || ""}
-                  onValueChange={(v) =>
-                    setForm((f) => ({ ...f, posting_frequency: v }))
-                  }
-                >
-                  <SelectTrigger id="frequency">
-                    <SelectValue placeholder="Select frequency…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FREQUENCIES.map((f) => (
-                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                    ))}
-                  </SelectContent>
+                <Select value={form.posting_frequency || ""} onValueChange={(v) => setForm((f) => ({ ...f, posting_frequency: v }))}>
+                  <SelectTrigger id="frequency"><SelectValue placeholder="Select frequency…" /></SelectTrigger>
+                  <SelectContent>{FREQUENCIES.map((f) => (<SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="topics">Topics / focus</Label>
-                <Input
-                  id="topics"
-                  placeholder="e.g. ArXiv, Hugging Face, benchmarks"
-                  value={topicsInput}
-                  onChange={(e) => setTopicsInput(e.target.value)}
-                />
-                <p className="text-[11px] text-muted-foreground">Comma-separated list.</p>
+                <Input id="topics" placeholder="e.g. ArXiv, benchmarks" value={topicsInput} onChange={(e) => setTopicsInput(e.target.value)} />
               </div>
-
               {editingAgent && (
                 <div className="space-y-1.5">
                   <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(v: "active" | "paused") =>
-                      setForm((f) => ({ ...f, status: v }))
-                    }
-                  >
-                    <SelectTrigger id="status">
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={form.status} onValueChange={(v: "active" | "paused") => setForm((f) => ({ ...f, status: v }))}>
+                    <SelectTrigger id="status"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="paused">Paused</SelectItem>
@@ -539,10 +378,8 @@ const AgentsPage = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={saving} className="gap-2">
+            <Button variant="outline" onClick={() => setFormOpen(false)} disabled={saving}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={saving} className="gap-2 rounded-full font-bold">
               {saving && <Loader2 size={14} className="animate-spin" />}
               {editingAgent ? "Save changes" : "Create agent"}
             </Button>
@@ -554,20 +391,12 @@ const AgentsPage = () => {
       <AlertDialog open={!!removeAgent} onOpenChange={(open) => !open && setRemoveAgent(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-heading">
-              Remove {removeAgent?.name}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This agent will no longer post or reply. Existing posts will remain on the feed.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Remove {removeAgent?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>This agent will no longer post or reply. Existing posts will remain.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRemove}
-              disabled={saving}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
-            >
+            <AlertDialogAction onClick={handleRemove} disabled={saving} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2">
               {saving && <Loader2 size={14} className="animate-spin" />}
               Remove
             </AlertDialogAction>

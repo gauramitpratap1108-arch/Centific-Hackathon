@@ -1,32 +1,20 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-/**
- * Get the stored JWT access token.
- */
 export function getToken(): string | null {
   return localStorage.getItem('observatory_token');
 }
 
-/**
- * Store tokens after login/register.
- */
 export function setTokens(token: string, refreshToken: string): void {
   localStorage.setItem('observatory_token', token);
   localStorage.setItem('observatory_refresh_token', refreshToken);
 }
 
-/**
- * Clear tokens on logout.
- */
 export function clearTokens(): void {
   localStorage.removeItem('observatory_token');
   localStorage.removeItem('observatory_refresh_token');
   localStorage.removeItem('observatory_user');
 }
 
-/**
- * Core fetch wrapper that attaches JWT and handles 401.
- */
 async function apiFetch<T = any>(
   path: string,
   options: RequestInit = {}
@@ -47,17 +35,14 @@ async function apiFetch<T = any>(
   });
 
   if (res.status === 401) {
-    // Try to refresh the token
     const refreshed = await tryRefreshToken();
     if (refreshed) {
-      // Retry with new token
       headers['Authorization'] = `Bearer ${getToken()}`;
       const retryRes = await fetch(`${API_BASE}${path}`, { ...options, headers });
       if (retryRes.ok) {
         return retryRes.json();
       }
     }
-    // Refresh failed — clear tokens and redirect to login
     clearTokens();
     window.location.href = '/login';
     throw new Error('Unauthorized');
@@ -71,9 +56,6 @@ async function apiFetch<T = any>(
   return res.json();
 }
 
-/**
- * Attempt to refresh the access token using the refresh token.
- */
 async function tryRefreshToken(): Promise<boolean> {
   const refreshToken = localStorage.getItem('observatory_refresh_token');
   if (!refreshToken) return false;
@@ -95,7 +77,7 @@ async function tryRefreshToken(): Promise<boolean> {
   }
 }
 
-// ── Auth API ────────────────────────────────────────────────────────────────
+// ── Auth ────────────────────────────────────────────────────────────────
 
 export async function apiLogin(email: string, password: string) {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -129,9 +111,8 @@ export async function apiRegister(email: string, password: string, name: string)
   return data;
 }
 
-// ── Data API ────────────────────────────────────────────────────────────────
+// ── Agents ──────────────────────────────────────────────────────────────
 
-// Agents
 export const fetchAgents = (params?: Record<string, string>) => {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
   return apiFetch<{ data: any[] }>(`/api/agents${qs}`);
@@ -155,7 +136,8 @@ export const updateAgent = (id: string, body: any) =>
 export const deleteAgent = (id: string) =>
   apiFetch<{ message: string }>(`/api/agents/${id}`, { method: 'DELETE' });
 
-// Posts
+// ── Posts ────────────────────────────────────────────────────────────────
+
 export const fetchPosts = (params?: Record<string, string>) => {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
   return apiFetch<{ data: any[] }>(`/api/posts${qs}`);
@@ -179,7 +161,8 @@ export const voteOnPost = (postId: string, body: { voter_agent_id: string; vote_
     body: JSON.stringify(body),
   });
 
-// News
+// ── News ────────────────────────────────────────────────────────────────
+
 export const fetchNews = (params?: Record<string, string>) => {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
   return apiFetch<{ data: any[] }>(`/api/news${qs}`);
@@ -188,7 +171,8 @@ export const fetchNews = (params?: Record<string, string>) => {
 export const fetchNewsItem = (id: string) =>
   apiFetch<{ data: any }>(`/api/news/${id}`);
 
-// Sources
+// ── Sources ─────────────────────────────────────────────────────────────
+
 export const fetchSources = () =>
   apiFetch<{ data: any[] }>('/api/sources');
 
@@ -204,13 +188,15 @@ export const updateSource = (id: string, body: any) =>
     body: JSON.stringify(body),
   });
 
-// Reports
+// ── Reports ─────────────────────────────────────────────────────────────
+
 export const fetchReports = (params?: Record<string, string>) => {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
   return apiFetch<{ data: any[] }>(`/api/reports${qs}`);
 };
 
-// Moderation
+// ── Moderation ──────────────────────────────────────────────────────────
+
 export const fetchModerationReviews = (params?: Record<string, string>) => {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
   return apiFetch<{ data: any[] }>(`/api/moderation/reviews${qs}`);
@@ -225,7 +211,8 @@ export const updateModerationReview = (id: string, body: { status: string }) =>
 export const fetchModerationStats = () =>
   apiFetch<{ data: any }>('/api/moderation/stats');
 
-// Usage / Dashboard
+// ── Usage / Dashboard ───────────────────────────────────────────────────
+
 export const fetchUsageStats = (params?: Record<string, string>) => {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
   return apiFetch<{ data: any }>(`/api/usage/stats${qs}`);
@@ -240,5 +227,3 @@ export const fetchUsageRecent = (params?: Record<string, string>) => {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
   return apiFetch<{ data: any[] }>(`/api/usage/recent${qs}`);
 };
-
-

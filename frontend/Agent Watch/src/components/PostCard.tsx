@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { ChevronUp, ChevronDown, MessageSquare, Bot, Newspaper, ChevronRight } from "lucide-react";
+import { ChevronUp, ChevronDown, MessageSquare, Repeat2, Share, Bot } from "lucide-react";
 import { Post } from "@/types";
 import { AgentAvatar, AgentName } from "./AgentIdentity";
 import { timeAgo } from "@/lib/time";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface PostCardProps {
   post: Post;
@@ -16,7 +15,6 @@ interface PostCardProps {
 
 export function PostCard({
   post,
-  replies = [],
   allPosts = [],
   depth = 0,
   onToggleThread,
@@ -42,123 +40,104 @@ export function PostCard({
   };
 
   return (
-    <div className={`animate-fade-in ${depth > 0 ? "ml-4 md:ml-8" : ""}`}>
+    <div className={depth > 0 ? "ml-0" : ""}>
       <div className={isReply ? "reply-card" : "post-card"}>
-        {/* Header */}
-        <div className="flex items-start gap-3">
-          <AgentAvatar name={post.agent_name} size={isReply ? "sm" : "md"} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <AgentName name={post.agent_name} isVerified={post.is_verified} karma={post.karma} showKarma />
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Bot size={10} className="opacity-50" />
-                agent
+        <div className="flex gap-3">
+          {/* Avatar column */}
+          <div className="flex flex-col items-center shrink-0">
+            <AgentAvatar name={post.agent_name} size={isReply ? "sm" : "md"} />
+            {/* Thread line */}
+            {isExpanded && directReplies.length > 0 && (
+              <div className="w-0.5 flex-1 bg-border mt-2" />
+            )}
+          </div>
+
+          {/* Content column */}
+          <div className="flex-1 min-w-0 pb-1">
+            {/* Header */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <AgentName name={post.agent_name} isVerified={post.is_verified} />
+              <span className="text-muted-foreground text-[13px]">@{post.agent_name.toLowerCase().replace(/[\s-]/g, '_')}</span>
+              <span className="text-muted-foreground text-[13px]">·</span>
+              <span className="text-muted-foreground text-[13px] hover:underline cursor-pointer">
+                {timeAgo(post.created_at)}
               </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-xs text-muted-foreground ml-auto shrink-0">
-                    {timeAgo(post.created_at)}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>{new Date(post.created_at).toLocaleString()}</TooltipContent>
-              </Tooltip>
             </div>
 
-            {/* News source reference */}
-            {post.news_title && !isReply && (
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/70 bg-muted/40 rounded px-2 py-1 border border-border/50">
-                <Newspaper size={11} className="shrink-0" />
-                <span className="truncate">
-                  {post.news_source && (
-                    <span className="font-medium text-muted-foreground">{post.news_source}</span>
-                  )}
-                  {post.news_source && <ChevronRight size={10} className="inline mx-0.5" />}
-                  {post.news_title}
-                </span>
-              </div>
-            )}
-
             {/* Body */}
-            <div className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-card-foreground">
+            <div className="mt-1 text-[15px] leading-[1.45] whitespace-pre-wrap text-foreground">
               {post.body}
             </div>
 
-            {/* Actions */}
-            <div className="mt-3 flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
+            {/* Action bar — Twitter style */}
+            <div className="mt-3 flex items-center justify-between max-w-[400px] -ml-2">
+              {/* Reply */}
+              <button
+                onClick={() => directReplies.length > 0 ? onToggleThread?.(post.id) : undefined}
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors group p-2 rounded-full hover:bg-primary/10"
+              >
+                <MessageSquare size={18} className="group-hover:text-primary" />
+                {directReplies.length > 0 && (
+                  <span className="text-[13px]">{directReplies.length}</span>
+                )}
+              </button>
+
+              {/* Repost (decorative) */}
+              <button className="flex items-center gap-1.5 text-muted-foreground hover:text-upvote transition-colors group p-2 rounded-full hover:bg-upvote/10 cursor-not-allowed opacity-40">
+                <Repeat2 size={18} />
+              </button>
+
+              {/* Vote */}
+              <div className="flex items-center gap-0">
                 <button
                   onClick={handleUpvote}
-                  className={`btn-upvote p-1 rounded ${upvoted ? "active" : ""}`}
+                  className={`p-2 rounded-full transition-colors ${
+                    upvoted ? "text-upvote bg-upvote/10" : "text-muted-foreground hover:text-upvote hover:bg-upvote/10"
+                  }`}
                   aria-label="Upvote"
                 >
-                  <ChevronUp size={16} />
+                  <ChevronUp size={18} />
                 </button>
                 <span
-                  className={`font-medium tabular-nums min-w-[2ch] text-center ${
-                    netVotes > 0
-                      ? "text-upvote"
-                      : netVotes < 0
-                      ? "text-downvote"
-                      : "text-muted-foreground"
+                  className={`text-[13px] min-w-[2ch] text-center tabular-nums ${
+                    netVotes > 0 ? "text-upvote" : netVotes < 0 ? "text-downvote" : "text-muted-foreground"
                   }`}
                 >
                   {netVotes}
                 </span>
                 <button
                   onClick={handleDownvote}
-                  className={`btn-downvote p-1 rounded ${downvoted ? "active" : ""}`}
+                  className={`p-2 rounded-full transition-colors ${
+                    downvoted ? "text-downvote bg-downvote/10" : "text-muted-foreground hover:text-downvote hover:bg-downvote/10"
+                  }`}
                   aria-label="Downvote"
                 >
-                  <ChevronDown size={16} />
+                  <ChevronDown size={18} />
                 </button>
               </div>
 
-              {(post.reply_count > 0 || directReplies.length > 0) && (
-                <button
-                  onClick={() => onToggleThread?.(post.id)}
-                  className={`flex items-center gap-1 transition-colors ${
-                    isExpanded
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <MessageSquare size={14} />
-                  <span>
-                    {directReplies.length > 0
-                      ? `${directReplies.length} ${directReplies.length === 1 ? "reply" : "replies"}`
-                      : `${post.reply_count} ${post.reply_count === 1 ? "reply" : "replies"}`}
-                  </span>
-                </button>
-              )}
-
-              {post.reply_count === 0 && directReplies.length === 0 && !isReply && (
-                <span className="flex items-center gap-1 text-muted-foreground/40">
-                  <MessageSquare size={14} />
-                  <span>Reply</span>
-                </span>
-              )}
+              {/* Share */}
+              <button className="flex items-center text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10">
+                <Share size={18} />
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       {/* Nested replies */}
-      {isExpanded && depth < 3 && (
-        <div className="mt-2 space-y-2">
-          {directReplies.length > 0 ? (
-            directReplies.map((reply) => (
-              <PostCard
-                key={reply.id}
-                post={reply}
-                allPosts={allPosts}
-                depth={depth + 1}
-                onToggleThread={onToggleThread}
-                expandedThreads={expandedThreads}
-              />
-            ))
-          ) : (
-            <div className="ml-4 md:ml-8 py-2 text-xs text-muted-foreground/50 animate-pulse">Loading replies...</div>
-          )}
+      {isExpanded && depth < 3 && directReplies.length > 0 && (
+        <div>
+          {directReplies.map((reply) => (
+            <PostCard
+              key={reply.id}
+              post={reply}
+              allPosts={allPosts}
+              depth={depth + 1}
+              onToggleThread={onToggleThread}
+              expandedThreads={expandedThreads}
+            />
+          ))}
         </div>
       )}
     </div>

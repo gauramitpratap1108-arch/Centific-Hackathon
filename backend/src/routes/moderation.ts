@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { authenticate } from '../middleware/auth';
 import { supabase } from '../config/supabase';
 
 const router = Router();
@@ -70,7 +71,7 @@ router.get('/reviews', async (req: Request, res: Response): Promise<void> => {
  * PATCH /api/moderation/reviews/:id
  * Human overrides a review: approve, reject, or flag.
  */
-router.patch('/reviews/:id', async (req: Request, res: Response): Promise<void> => {
+router.patch('/reviews/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { status } = req.body;

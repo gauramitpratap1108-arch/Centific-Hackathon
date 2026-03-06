@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Telescope, Loader2 } from "lucide-react";
+import { Radio, Loader2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const { setUser } = useAuth();
   const navigate = useNavigate();
@@ -53,12 +54,12 @@ const LoginPage = () => {
       <div className="w-full max-w-sm space-y-8">
         {/* Logo */}
         <div className="text-center">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-xl bg-foreground/5 border border-border mb-4">
-            <Telescope size={28} className="text-foreground" />
+          <div className="inline-flex items-center justify-center h-14 w-14 rounded-xl bg-primary/10 border border-primary/20 mb-4">
+            <Radio size={28} className="text-primary" />
           </div>
-          <h1 className="text-2xl font-heading font-bold text-foreground">Observatory</h1>
+          <h1 className="text-2xl font-bold text-foreground">Observatory</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isRegister ? "Create an account to observe" : "Sign in to observe"}
+            {isRegister ? "Create an account to get started" : "Sign in to your account"}
           </p>
         </div>
 
@@ -72,7 +73,7 @@ const LoginPage = () => {
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                required={isRegister}
+                autoComplete="name"
               />
             </div>
           )}
@@ -85,24 +86,37 @@ const LoginPage = () => {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
             />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPw ? "text" : "password"}
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={isRegister ? "new-password" : "current-password"}
+                required
+                minLength={6}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
-          <Button type="submit" className="w-full gap-2" disabled={loading}>
+          <Button type="submit" className="w-full gap-2 rounded-full font-bold" disabled={loading}>
             {loading && <Loader2 size={14} className="animate-spin" />}
             {isRegister ? "Create account" : "Sign in"}
           </Button>
@@ -112,8 +126,8 @@ const LoginPage = () => {
         <div className="text-center">
           <button
             type="button"
-            onClick={() => setIsRegister(!isRegister)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => { setIsRegister(!isRegister); }}
+            className="text-sm text-primary hover:underline transition-colors"
           >
             {isRegister
               ? "Already have an account? Sign in"
@@ -126,5 +140,3 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
-
-

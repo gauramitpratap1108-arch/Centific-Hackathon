@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,106 +6,110 @@
 
 @layer base {
   :root {
-    --font-heading: 'Space Grotesk', sans-serif;
-    --font-body: system-ui, -apple-system, sans-serif;
+    --font-heading: 'Inter', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
 
-    --background: 0 0% 4%;
-    --foreground: 0 0% 90%;
+    --background: 260 15% 4%;
+    --foreground: 260 10% 92%;
 
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 90%;
+    --card: 260 15% 7%;
+    --card-foreground: 260 10% 92%;
 
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 90%;
+    --popover: 260 15% 9%;
+    --popover-foreground: 260 10% 92%;
 
-    --primary: 0 0% 100%;
-    --primary-foreground: 0 0% 4%;
+    --primary: 265 90% 62%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 70%;
+    --secondary: 260 15% 11%;
+    --secondary-foreground: 260 10% 55%;
 
-    --muted: 0 0% 11%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 260 12% 11%;
+    --muted-foreground: 260 8% 45%;
 
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 90%;
+    --accent: 260 15% 13%;
+    --accent-foreground: 260 10% 92%;
 
-    --destructive: 0 65% 50%;
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 14%;
-    --input: 0 0% 14%;
-    --ring: 0 0% 40%;
+    --border: 260 12% 14%;
+    --input: 260 12% 14%;
+    --ring: 265 90% 62%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --upvote: 145 50% 45%;
-    --downvote: 0 55% 50%;
-    --agent-border: 0 0% 25%;
-    --verified: 210 60% 55%;
-    --karma: 45 60% 55%;
+    --upvote: 160 70% 45%;
+    --downvote: 0 70% 50%;
+    --agent-border: 265 30% 30%;
+    --verified: 265 90% 62%;
+    --karma: 45 80% 55%;
 
-    --glow: 0 0% 100%;
+    --glow: 265 90% 62%;
 
-    --sidebar-background: 0 0% 3%;
-    --sidebar-foreground: 0 0% 55%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 0 0% 4%;
-    --sidebar-accent: 0 0% 10%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 0 0% 10%;
-    --sidebar-ring: 0 0% 40%;
+    --sidebar-background: 260 15% 3%;
+    --sidebar-foreground: 260 8% 45%;
+    --sidebar-primary: 265 90% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 260 15% 10%;
+    --sidebar-accent-foreground: 260 10% 92%;
+    --sidebar-border: 260 12% 12%;
+    --sidebar-ring: 265 90% 62%;
 
-    --news-source-arxiv: 0 60% 55%;
-    --news-source-hf: 45 70% 55%;
-    --news-source-default: 0 0% 45%;
+    --news-source-arxiv: 0 65% 55%;
+    --news-source-hf: 45 75% 55%;
+    --news-source-default: 260 8% 50%;
+
+    --gradient-start: 280 80% 55%;
+    --gradient-mid: 240 70% 50%;
+    --gradient-end: 320 75% 55%;
   }
 
   .light {
-    --background: 0 0% 97%;
-    --foreground: 0 0% 8%;
+    --background: 260 20% 98%;
+    --foreground: 260 15% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 8%;
+    --card-foreground: 260 15% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 8%;
+    --popover-foreground: 260 15% 8%;
 
-    --primary: 0 0% 8%;
+    --primary: 265 85% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 25%;
+    --secondary: 260 15% 94%;
+    --secondary-foreground: 260 10% 35%;
 
-    --muted: 0 0% 94%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 260 15% 95%;
+    --muted-foreground: 260 8% 42%;
 
-    --accent: 0 0% 90%;
-    --accent-foreground: 0 0% 8%;
+    --accent: 260 15% 93%;
+    --accent-foreground: 260 15% 8%;
 
-    --destructive: 0 65% 50%;
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 88%;
-    --input: 0 0% 88%;
-    --ring: 0 0% 60%;
+    --border: 260 12% 90%;
+    --input: 260 12% 90%;
+    --ring: 265 85% 55%;
 
-    --upvote: 145 50% 35%;
-    --downvote: 0 55% 45%;
-    --agent-border: 0 0% 75%;
-    --verified: 210 60% 45%;
-    --karma: 45 60% 45%;
+    --upvote: 160 60% 35%;
+    --downvote: 0 65% 45%;
+    --agent-border: 265 20% 75%;
+    --verified: 265 85% 55%;
+    --karma: 45 70% 45%;
 
-    --glow: 0 0% 0%;
+    --glow: 265 85% 55%;
 
-    --sidebar-background: 0 0% 95%;
-    --sidebar-foreground: 0 0% 35%;
-    --sidebar-primary: 0 0% 8%;
+    --sidebar-background: 260 15% 97%;
+    --sidebar-foreground: 260 8% 40%;
+    --sidebar-primary: 265 85% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 90%;
-    --sidebar-accent-foreground: 0 0% 8%;
-    --sidebar-border: 0 0% 88%;
-    --sidebar-ring: 0 0% 60%;
+    --sidebar-accent: 260 15% 94%;
+    --sidebar-accent-foreground: 260 15% 8%;
+    --sidebar-border: 260 12% 90%;
+    --sidebar-ring: 265 85% 55%;
   }
 }
 
@@ -123,99 +127,187 @@
 
 @layer components {
   .post-card {
-    @apply bg-card border border-border rounded-xl p-4 transition-all duration-300;
-    border-left: 3px solid hsl(var(--agent-border) / 0.3);
+    @apply bg-card px-4 py-3 transition-colors duration-150 cursor-pointer;
+    border-bottom: 1px solid hsl(var(--border));
   }
   .post-card:hover {
-    border-left-color: hsl(var(--agent-border) / 0.7);
-    box-shadow: 0 0 30px hsl(var(--glow) / 0.03), 0 4px 20px hsl(0 0% 0% / 0.3);
-    @apply bg-card/80;
+    background: hsl(var(--primary) / 0.04);
   }
+
   .reply-card {
-    @apply bg-card/40 border border-border/40 rounded-xl p-3 transition-all duration-300;
-    border-left: 2px solid hsl(var(--border));
+    @apply bg-card/40 px-4 py-3 transition-colors duration-150;
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
   }
+
   .news-card {
-    @apply bg-card border border-border rounded-xl p-4 transition-all duration-300;
+    @apply bg-card px-4 py-3 transition-colors duration-150 cursor-pointer;
+    border-bottom: 1px solid hsl(var(--border));
   }
   .news-card:hover {
-    box-shadow: 0 0 20px hsl(var(--glow) / 0.03);
-    @apply border-foreground/10;
+    background: hsl(var(--primary) / 0.04);
   }
+
   .sidebar-nav-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground transition-all duration-200;
+    @apply flex items-center gap-5 px-4 py-3 rounded-full text-foreground transition-all duration-200 text-xl;
   }
   .sidebar-nav-item:hover {
-    @apply bg-sidebar-accent text-sidebar-accent-foreground;
+    @apply bg-accent;
   }
   .sidebar-nav-item.active {
-    @apply bg-sidebar-accent text-foreground font-medium;
-    box-shadow: inset 0 0 0 1px hsl(var(--border));
+    @apply font-bold;
   }
+
   .badge-verified {
-    @apply inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded-full;
+    @apply inline-flex items-center gap-0.5;
     color: hsl(var(--verified));
-    background: hsl(var(--verified) / 0.1);
   }
   .badge-karma {
     @apply inline-flex items-center gap-1 text-xs font-medium;
     color: hsl(var(--karma));
   }
+
   .btn-upvote {
     color: hsl(var(--muted-foreground));
-    transition: color 0.15s, transform 0.15s;
+    transition: color 0.15s;
   }
   .btn-upvote:hover, .btn-upvote.active {
     color: hsl(var(--upvote));
-    transform: scale(1.1);
   }
   .btn-downvote {
     color: hsl(var(--muted-foreground));
-    transition: color 0.15s, transform 0.15s;
+    transition: color 0.15s;
   }
   .btn-downvote:hover, .btn-downvote.active {
     color: hsl(var(--downvote));
-    transform: scale(1.1);
   }
+
   .source-badge {
     @apply text-xs font-medium px-2 py-0.5 rounded-full;
   }
   .source-badge-arxiv {
     color: hsl(var(--news-source-arxiv));
-    background: hsl(var(--news-source-arxiv) / 0.1);
+    background: hsl(var(--news-source-arxiv) / 0.12);
   }
   .source-badge-hf {
     color: hsl(var(--news-source-hf));
-    background: hsl(var(--news-source-hf) / 0.1);
+    background: hsl(var(--news-source-hf) / 0.12);
   }
   .source-badge-default {
     color: hsl(var(--news-source-default));
-    background: hsl(var(--news-source-default) / 0.1);
+    background: hsl(var(--news-source-default) / 0.12);
   }
 
-  /* Glass card effect */
-  .glass-card {
-    @apply bg-card/60 backdrop-blur-md border border-border/60 rounded-xl;
+  /* Gradient text utility */
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-mid)), hsl(var(--gradient-end)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Gradient border glow */
+  .glow-border {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.15), 0 0 60px hsl(var(--primary) / 0.05);
   }
 }
 
-/* Custom scrollbar */
+/* ── Hero wave animation ────────────────────────────── */
+
+@keyframes wave-flow {
+  0% { transform: translate(-5%, -5%) rotate(0deg) scale(1.1); }
+  25% { transform: translate(2%, 3%) rotate(3deg) scale(1.15); }
+  50% { transform: translate(-3%, 5%) rotate(-2deg) scale(1.1); }
+  75% { transform: translate(4%, -2%) rotate(2deg) scale(1.2); }
+  100% { transform: translate(-5%, -5%) rotate(0deg) scale(1.1); }
+}
+
+@keyframes wave-flow-2 {
+  0% { transform: translate(5%, 5%) rotate(0deg) scale(1.15); }
+  25% { transform: translate(-3%, -2%) rotate(-3deg) scale(1.1); }
+  50% { transform: translate(4%, -4%) rotate(2deg) scale(1.2); }
+  75% { transform: translate(-2%, 3%) rotate(-1deg) scale(1.1); }
+  100% { transform: translate(5%, 5%) rotate(0deg) scale(1.15); }
+}
+
+@keyframes wave-flow-3 {
+  0% { transform: translate(0%, -3%) rotate(1deg) scale(1.05); }
+  33% { transform: translate(-4%, 2%) rotate(-2deg) scale(1.15); }
+  66% { transform: translate(3%, -1%) rotate(3deg) scale(1.1); }
+  100% { transform: translate(0%, -3%) rotate(1deg) scale(1.05); }
+}
+
+.hero-waves {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.hero-waves::before,
+.hero-waves::after,
+.hero-waves .wave-layer {
+  content: '';
+  position: absolute;
+  border-radius: 40% 60% 55% 45% / 55% 40% 60% 45%;
+}
+
+.hero-waves::before {
+  width: 140%;
+  height: 140%;
+  top: -20%;
+  left: -20%;
+  background: radial-gradient(
+    ellipse at 30% 40%,
+    hsl(290 60% 65% / 0.5) 0%,
+    hsl(270 70% 60% / 0.35) 25%,
+    hsl(260 55% 55% / 0.2) 50%,
+    hsl(240 40% 50% / 0.08) 70%,
+    transparent 85%
+  );
+  animation: wave-flow 22s ease-in-out infinite;
+}
+
+.hero-waves::after {
+  width: 130%;
+  height: 130%;
+  top: -15%;
+  right: -25%;
+  background: radial-gradient(
+    ellipse at 65% 35%,
+    hsl(320 55% 65% / 0.45) 0%,
+    hsl(300 50% 60% / 0.3) 20%,
+    hsl(280 55% 55% / 0.18) 45%,
+    hsl(265 40% 50% / 0.06) 65%,
+    transparent 85%
+  );
+  animation: wave-flow-2 28s ease-in-out infinite;
+}
+
+.hero-waves .wave-layer {
+  width: 125%;
+  height: 125%;
+  bottom: -25%;
+  left: -10%;
+  background: radial-gradient(
+    ellipse at 45% 60%,
+    hsl(310 45% 60% / 0.4) 0%,
+    hsl(285 50% 55% / 0.25) 30%,
+    hsl(265 45% 50% / 0.12) 55%,
+    transparent 80%
+  );
+  animation: wave-flow-3 19s ease-in-out infinite;
+  border-radius: 55% 45% 50% 50% / 45% 55% 45% 55%;
+}
+
+/* Hide Spline watermark */
+a[href*="spline.design"] {
+  display: none !important;
+}
+
 ::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+  width: 0px;
 }
 
-/* Selection */
 ::selection {
-  background: hsl(var(--foreground) / 0.15);
+  background: hsl(var(--primary) / 0.25);
   color: hsl(var(--foreground));
 }
