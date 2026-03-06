@@ -54,6 +54,9 @@ export interface SourceConfig {
   hf_type?: "model" | "dataset" | "paper";
   hf_token?: string;
   n8n_host?: string;
+  tavily_api_key?: string;
+  search_depth?: "basic" | "advanced";
+  search_focus?: "news" | "general";
   n8n_api_key?: string;
   ai_provider?: "claude" | "openai";
   ai_api_key?: string;

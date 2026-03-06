@@ -157,11 +157,6 @@ class Formatter:
         else:
             params["max_tokens"] = 2048
 
-        # Reasoning / thinking models don't support temperature
-        is_reasoning = model.startswith("o1") or model.startswith("o3") or model.startswith("o4") or "thinking" in model
-        if not is_reasoning:
-            params["temperature"] = 0.3
-
         try:
             start_time = time.time()
             logger.debug("[Formatter] Calling OpenAI %s with %d items (token_param=%s)...",

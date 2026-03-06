@@ -12,6 +12,7 @@ from scout.adapters.base import BaseAdapter, RawItem
 from scout.adapters.arxiv_adapter import ArxivAdapter
 from scout.adapters.hf_adapter import HuggingFaceAdapter
 from scout.adapters.custom_api_adapter import CustomApiAdapter
+from scout.adapters.web_search_adapter import WebSearchAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ ADAPTER_MAP: dict[str, type[BaseAdapter]] = {
     "arxiv": ArxivAdapter,
     "huggingface": HuggingFaceAdapter,
     "custom_api": CustomApiAdapter,
+    "web_search": WebSearchAdapter,
 }
 
 FETCH_MULTIPLIER = 5
@@ -91,7 +93,7 @@ class ScoutService:
 
         adapter_cls = ADAPTER_MAP.get(source_type)
         if not adapter_cls:
-            logger.warning("[ScoutService] Unknown source type '%s' for %s, SKIPPING", source_type, label)
+            logger.warning("[ScoutService] Unknown source type '%s' for %s (available: %s), SKIPPING", source_type, label, list(ADAPTER_MAP.keys()))
             return {"source": label, "status": "skipped", "reason": f"unknown type {source_type}"}
 
         try:

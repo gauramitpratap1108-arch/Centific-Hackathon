@@ -4,7 +4,7 @@ import { fetchSources, createSource, updateSource } from "@/lib/api";
 import { Source, SourceConfig } from "@/types";
 import { timeAgo } from "@/lib/time";
 import {
-  Database, Wifi, WifiOff, Loader2, Plus, Search, Globe, BookOpen,
+  Database, Wifi, WifiOff, Loader2, Plus, Search, Globe, Globe2, BookOpen,
   Eye, EyeOff, Zap, Brain, Code, Sparkles, CircleDollarSign, Shield,
 } from "lucide-react";
 import { useState } from "react";
@@ -23,6 +23,7 @@ import {
 const SOURCE_TYPES = [
   { value: "arxiv", label: "ArXiv", icon: BookOpen },
   { value: "huggingface", label: "Hugging Face", icon: Search },
+  { value: "web_search", label: "Web Search", icon: Globe2 },
   { value: "custom_api", label: "Custom API (n8n)", icon: Globe },
 ] as const;
 
@@ -134,6 +135,7 @@ const AI_PROVIDERS = [
 function getTypeBadge(type: string) {
   if (type === "arxiv") return "source-badge source-badge-arxiv";
   if (type === "huggingface") return "source-badge source-badge-hf";
+  if (type === "web_search") return "source-badge source-badge-default";
   return "source-badge source-badge-default";
 }
 
@@ -165,6 +167,9 @@ interface FormState {
   api_url: string;
   n8n_host: string;
   n8n_api_key: string;
+  tavily_api_key: string;
+  search_depth: string;
+  search_focus: string;
   ai_provider: string;
   ai_api_key: string;
   ai_model: string;
@@ -182,6 +187,9 @@ const EMPTY_FORM: FormState = {
   api_url: "",
   n8n_host: "http://localhost:5678/api/v1",
   n8n_api_key: "",
+  tavily_api_key: "",
+  search_depth: "advanced",
+  search_focus: "news",
   ai_provider: "claude",
   ai_api_key: "",
   ai_model: "claude-sonnet-4-6",
@@ -325,6 +333,9 @@ const SourcesPage = () => {
       api_url: cfg.api_url || "",
       n8n_host: cfg.n8n_host || "http://localhost:5678/api/v1",
       n8n_api_key: cfg.n8n_api_key || "",
+      tavily_api_key: cfg.tavily_api_key || "",
+      search_depth: cfg.search_depth || "advanced",
+      search_focus: cfg.search_focus || "news",
       ai_provider: provider,
       ai_api_key: cfg.ai_api_key || "",
       ai_model: cfg.ai_model || (provider === "openai" ? "gpt-5.4" : "claude-sonnet-4-6"),
@@ -366,6 +377,14 @@ const SourcesPage = () => {
       }
     }
 
+    if (form.type === "web_search") {
+      if (form.tavily_api_key.trim()) {
+        config.tavily_api_key = form.tavily_api_key.trim();
+      }
+      config.search_depth = form.search_depth as SourceConfig["search_depth"];
+      config.search_focus = form.search_focus as SourceConfig["search_focus"];
+    }
+
     const body = {
       label: form.label,
       type: form.type,
@@ -395,7 +414,8 @@ const SourcesPage = () => {
   const isValid =
     form.label.trim() &&
     form.topic.trim() &&
-    (form.type !== "custom_api" || form.api_url.trim());
+    (form.type !== "custom_api" || form.api_url.trim()) &&
+    (form.type !== "web_search" || form.tavily_api_key.trim());
 
   return (
     <AppLayout>
@@ -621,6 +641,51 @@ const SourcesPage = () => {
                   </p>
                 </div>
               </>
+            )}
+
+            {/* ── Web Search fields ──────────────────────────────────────── */}
+            {form.type === "web_search" && (
+              <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/30">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+                  Web Search Configuration
+                </p>
+                <div className="space-y-1.5">
+                  <Label>Tavily API Key</Label>
+                  <SecretInput
+                    value={form.tavily_api_key}
+                    onChange={(v) => setForm((f) => ({ ...f, tavily_api_key: v }))}
+                    placeholder="tvly-..."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Free: 1,000 searches/month.{" "}
+                    <a href="https://tavily.com" target="_blank" rel="noreferrer" className="text-primary underline">
+                      Get key at tavily.com
+                    </a>
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Search Depth</Label>
+                    <Select value={form.search_depth} onValueChange={(v) => setForm((f) => ({ ...f, search_depth: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basic">Basic (faster, 1 credit)</SelectItem>
+                        <SelectItem value="advanced">Advanced (deeper, 2 credits)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Focus</Label>
+                    <Select value={form.search_focus} onValueChange={(v) => setForm((f) => ({ ...f, search_focus: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="news">News (latest articles)</SelectItem>
+                        <SelectItem value="general">General (all web)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* ── Custom API + n8n fields ───────────────────────────────── */}
