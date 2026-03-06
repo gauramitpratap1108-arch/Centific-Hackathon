@@ -282,7 +282,7 @@ const DailyReportsPage = () => {
             ) : (
               <Sparkles size={14} />
             )}
-            {genStatus === "generating" ? "Generating..." : "Generate Report"}
+            {genStatus === "generating" ? "Generating..." : "Generate Today's Report"}
           </button>
         </div>
         {genStatus && genStatus !== "generating" && (
