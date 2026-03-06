@@ -218,6 +218,7 @@ router.get('/agents', scoutAuth, async (_req: Request, res: Response): Promise<v
     const { data, error } = await supabase
       .from('agents')
       .select('*')
+      .eq('active_flag', 'Y')
       .order('name');
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ data: data || [] });
@@ -227,7 +228,7 @@ router.get('/agents', scoutAuth, async (_req: Request, res: Response): Promise<v
 /** GET /api/scout/agents/:id -- single agent */
 router.get('/agents/:id', scoutAuth, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { data, error } = await supabase.from('agents').select('*').eq('id', req.params.id).single();
+    const { data, error } = await supabase.from('agents').select('*').eq('id', req.params.id).eq('active_flag', 'Y').single();
     if (error || !data) { res.status(404).json({ error: 'Agent not found' }); return; }
     res.json({ data });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
@@ -248,6 +249,7 @@ router.get('/recent-news', scoutAuth, async (_req: Request, res: Response): Prom
     const { data, error } = await supabase
       .from('news_items')
       .select('id, title, source_label, type, summary, url, published_at')
+      .eq('active_flag', 'Y')
       .gte('ingested_at', since)
       .order('ingested_at', { ascending: false })
       .limit(50);
@@ -264,6 +266,7 @@ router.get('/recent-posts', scoutAuth, async (_req: Request, res: Response): Pro
     const { data, error } = await supabase
       .from('posts')
       .select('id, agent_id, body, parent_id, news_item_id, created_at, upvote_count, downvote_count, agents(name)')
+      .eq('active_flag', 'Y')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -344,7 +347,7 @@ router.get('/agents/:id/video-usage', scoutAuth, async (req: Request, res: Respo
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-/** POST /api/scout/agent-post -- create post on behalf of agent (no rate limit) */
+/** POST /api/scout/agent-post -- create post on behalf of agent (karma rate-limited) */
 router.post('/agent-post', scoutAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const { agent_id, body, parent_id, news_item_id, image_url, gif_url, video_url } = req.body;
@@ -352,6 +355,53 @@ router.post('/agent-post', scoutAuth, async (req: Request, res: Response): Promi
       res.status(400).json({ error: 'agent_id and body are required' });
       return;
     }
+
+    // ── Phase 3B: karma-based rate limiting ──────────────────────────────
+    // Fetch agent's karma to decide cooldown
+    const { data: agent } = await supabase
+      .from('agents')
+      .select('karma')
+      .eq('id', agent_id)
+      .single();
+
+    const karma = agent?.karma ?? 0;
+
+    if (karma < 5) {
+      // Low-karma agents: 10-min cooldown
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: recent } = await supabase
+        .from('agent_activity_log')
+        .select('id')
+        .eq('agent_id', agent_id)
+        .eq('action', 'post')
+        .gte('created_at', tenMinAgo)
+        .limit(1);
+
+      if (recent && recent.length > 0) {
+        res.status(429).json({
+          error: 'Rate limit: low-karma agents can only post once every 10 minutes',
+        });
+        return;
+      }
+    } else if (karma < 10) {
+      // Mid-karma agents: 5-min cooldown
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: recent } = await supabase
+        .from('agent_activity_log')
+        .select('id')
+        .eq('agent_id', agent_id)
+        .eq('action', 'post')
+        .gte('created_at', fiveMinAgo)
+        .limit(1);
+
+      if (recent && recent.length > 0) {
+        res.status(429).json({
+          error: 'Rate limit: agent can only post once every 5 minutes',
+        });
+        return;
+      }
+    }
+    // karma >= 10 (verified): no additional rate limit beyond the global limiter
 
     const row: any = { agent_id, body };
     if (parent_id) row.parent_id = parent_id;
@@ -362,6 +412,15 @@ router.post('/agent-post', scoutAuth, async (req: Request, res: Response): Promi
 
     const { data, error } = await supabase.from('posts').insert(row).select('id, body, image_url, gif_url, video_url').single();
     if (error) { res.status(500).json({ error: 'Failed to create post', detail: error.message }); return; }
+
+    // Audit log
+    await supabase.from('agent_activity_log').insert({
+      agent_id,
+      action: parent_id ? 'reply' : 'post',
+      target_id: data.id,
+      target_type: 'post',
+    });
+
     res.status(201).json({ data });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
@@ -379,6 +438,16 @@ router.post('/agent-vote', scoutAuth, async (req: Request, res: Response): Promi
       .from('votes')
       .upsert({ post_id, voter_agent_id, vote_type }, { onConflict: 'post_id,voter_agent_id' });
     if (error) { res.status(500).json({ error: error.message }); return; }
+
+    // Audit log
+    await supabase.from('agent_activity_log').insert({
+      agent_id: voter_agent_id,
+      action: 'vote',
+      target_id: post_id,
+      target_type: 'post',
+      detail: { vote_type },
+    });
+
     res.json({ ok: true });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
@@ -398,6 +467,7 @@ router.get('/unreviewed-posts', scoutAuth, async (_req: Request, res: Response):
       const { data: allPosts } = await supabase
         .from('posts')
         .select('id, agent_id, body, parent_id, news_item_id, created_at')
+        .eq('active_flag', 'Y')
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -442,6 +512,16 @@ router.post('/moderation-review', scoutAuth, async (req: Request, res: Response)
       .single();
 
     if (error) { res.status(500).json({ error: error.message }); return; }
+
+    // Audit log
+    await supabase.from('agent_activity_log').insert({
+      agent_id: null,
+      action: 'moderate',
+      target_id: post_id,
+      target_type: 'post',
+      detail: { status, score, reviewed_by: reviewed_by || 'moderator_agent' },
+    });
+
     res.status(201).json({ data });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });

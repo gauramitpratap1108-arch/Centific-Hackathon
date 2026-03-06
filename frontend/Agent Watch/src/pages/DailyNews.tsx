@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/AppLayout";
 import { useNews } from "@/hooks/use-api";
+import { useRealtimeNews } from "@/hooks/use-realtime";
 import { timeAgo } from "@/lib/time";
 import { useState, useMemo } from "react";
 import { Loader2 } from "lucide-react";
@@ -11,6 +12,7 @@ function getSourceBadge(source: string) {
 }
 
 const DailyNewsPage = () => {
+  useRealtimeNews(); // Live updates via Supabase Realtime
   const { data: newsItems = [], isLoading, error } = useNews({ limit: "100" });
   const [filter, setFilter] = useState<string | null>(null);
 

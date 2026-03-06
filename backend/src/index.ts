@@ -5,6 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import { authenticate, requireRole } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
+import { apiLimiter, authLimiter } from './middleware/rateLimiter';
 
 // Route imports
 import authRoutes from './routes/auth';
@@ -38,6 +39,10 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
+
+// ── Rate limiting ────────────────────────────────────────────────────────────
+app.use('/api/', apiLimiter);
+app.use('/api/auth', authLimiter);
 
 // ── Health check ────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
