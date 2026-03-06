@@ -1,9 +1,12 @@
 import { AppLayout } from "@/components/AppLayout";
-import { useAgents, useCreateAgent, useUpdateAgent, useDeleteAgent } from "@/hooks/use-api";
-import { Agent } from "@/types";
+import { useAgents, useCreateAgent, useUpdateAgent, useDeleteAgent, useAgentPosts, useAgentActivity } from "@/hooks/use-api";
+import { Agent, Post } from "@/types";
 import { AgentAvatar, AgentName } from "@/components/AgentIdentity";
+import { PostCard } from "@/components/PostCard";
+import { timeAgo } from "@/lib/time";
 import {
   Plus, Pencil, Trash2, Bot, Search, Loader2, Star, MessageSquare, Film,
+  ArrowLeft, ThumbsUp, ThumbsDown, Zap, Image,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -53,6 +56,7 @@ const FREQUENCIES = [
 ];
 
 type SortKey = "name" | "karma" | "status";
+type DetailTab = "posts" | "activity";
 
 const emptyForm = (): Omit<Agent, "id" | "karma" | "post_count" | "is_verified" | "created_at"> => ({
   name: "",
@@ -79,15 +83,27 @@ const AgentsPage = () => {
   const [topicsInput, setTopicsInput] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Inline activity state
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<DetailTab>("posts");
+
   const { data: agents = [], isLoading, error: fetchError } = useAgents({
     sort_by: sortBy,
   });
+
+  const { data: agentPosts = [], isLoading: postsLoading } = useAgentPosts(selectedAgentId || "");
+  const { data: agentActivity = [], isLoading: activityLoading } = useAgentActivity(selectedAgentId || "");
 
   const createMutation = useCreateAgent();
   const updateMutation = useUpdateAgent();
   const deleteMutation = useDeleteAgent();
 
   const saving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
+  const selectedAgent = useMemo(
+    () => agents.find((a) => a.id === selectedAgentId),
+    [agents, selectedAgentId],
+  );
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return agents;
@@ -173,6 +189,7 @@ const AgentsPage = () => {
       await deleteMutation.mutateAsync(removeAgent.id);
       toast({ title: "Agent removed.", description: `${removeAgent.name} has been removed.` });
       setRemoveAgent(null);
+      if (selectedAgentId === removeAgent.id) setSelectedAgentId(null);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
       toast({ title: "Error", description: message, variant: "destructive" });
@@ -186,134 +203,266 @@ const AgentsPage = () => {
     }));
   };
 
+  const actionIcon = (action: string) => {
+    if (action === "post") return <MessageSquare size={14} className="text-primary" />;
+    if (action === "reply") return <MessageSquare size={14} className="text-blue-400" />;
+    if (action === "upvote") return <ThumbsUp size={14} className="text-green-400" />;
+    if (action === "downvote") return <ThumbsDown size={14} className="text-red-400" />;
+    if (action === "image") return <Image size={14} className="text-purple-400" />;
+    return <Zap size={14} className="text-muted-foreground" />;
+  };
+
+  const selectAgent = (agentId: string) => {
+    setSelectedAgentId(agentId);
+    setDetailTab("posts");
+  };
+
   return (
     <AppLayout>
       {/* Sticky header */}
       <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Agents</h1>
-            <p className="text-[13px] text-muted-foreground mt-0.5">Configure AI agents for the feed</p>
-          </div>
-          <Button onClick={openAdd} size="sm" className="rounded-full gap-1.5 font-bold">
-            <Plus size={16} /> Add
-          </Button>
-        </div>
-      </div>
-
-      {/* Search + Sort */}
-      <div className="px-4 py-3 border-b border-border">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            placeholder="Search agents"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-secondary rounded-full pl-10 pr-4 py-2.5 text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary border-0"
-          />
-        </div>
-        <div className="flex gap-2 mt-3">
-          {(["karma", "name", "status"] as SortKey[]).map((key) => (
-            <button
-              key={key}
-              onClick={() => setSortBy(key)}
-              className={`text-[13px] px-3 py-1.5 rounded-full border transition-colors capitalize ${
-                sortBy === key
-                  ? "bg-foreground text-background border-foreground font-bold"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {key}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Agent List */}
-      {isLoading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-primary" />
-        </div>
-      ) : fetchError ? (
-        <div className="text-center py-20 px-4">
-          <p className="text-destructive text-[15px]">Failed to load agents. Is the backend running?</p>
-          <p className="text-muted-foreground text-[13px] mt-1">{(fetchError as Error).message}</p>
-        </div>
-      ) : filtered.length === 0 && agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-          <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-            <Bot size={32} className="text-muted-foreground" />
-          </div>
-          <h2 className="font-bold text-xl text-foreground mb-1">No agents yet</h2>
-          <p className="text-[15px] text-muted-foreground mb-4 max-w-sm">
-            Add your first agent to start the feed.
-          </p>
-          <Button onClick={openAdd} className="rounded-full gap-2 font-bold">
-            <Plus size={16} /> Add agent
-          </Button>
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="text-center text-[15px] text-muted-foreground py-12">No agents match your search.</p>
-      ) : (
-        <div>
-          {filtered.map((agent) => (
-            <div key={agent.id} className="post-card">
-              <div className="flex items-start gap-3">
-                <AgentAvatar name={agent.name} size="lg" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <AgentName name={agent.name} isVerified={agent.is_verified} />
-                    <span className="text-[13px] text-muted-foreground">@{agent.name.toLowerCase().replace(/[\s-]/g, '_')}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <Badge
-                      variant={agent.status === "active" ? "default" : "secondary"}
-                      className="text-[11px] px-2 py-0 rounded-full"
-                    >
-                      {agent.status === "active" ? "Active" : "Paused"}
-                    </Badge>
-                    {agent.skills.includes("generate_video") && (
-                      <Badge variant="secondary" className="text-[11px] px-2 py-0 rounded-full gap-1 bg-purple-500/10 text-purple-400 border-purple-500/20">
-                        <Film size={10} />
-                        Video {agent.video_used_this_month ?? 0}/{agent.video_limit_monthly ?? "inf"}
-                      </Badge>
-                    )}
-                    <span className="text-[13px] text-muted-foreground">{agent.role}</span>
-                  </div>
-                  {agent.description && (
-                    <p className="text-[14px] text-muted-foreground mt-1">{agent.description}</p>
-                  )}
-                  <div className="flex items-center gap-4 mt-2 text-[13px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Star size={14} className="text-karma" />
-                      {agent.karma.toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare size={14} />
-                      {agent.post_count}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-0 shrink-0">
-                  <button
-                    onClick={() => openEdit(agent)}
-                    className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                    title="Edit"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={() => setRemoveAgent(agent)}
-                    className="p-2 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    title="Remove"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
+          <div className="flex items-center gap-3">
+            {selectedAgentId && (
+              <button
+                onClick={() => setSelectedAgentId(null)}
+                className="p-1.5 rounded-full hover:bg-accent transition-colors"
+              >
+                <ArrowLeft size={20} />
+              </button>
+            )}
+            <div>
+              <h1 className="text-xl font-bold text-foreground">
+                {selectedAgent ? selectedAgent.name : "Agents"}
+              </h1>
+              <p className="text-[13px] text-muted-foreground mt-0.5">
+                {selectedAgent
+                  ? `${selectedAgent.role} — ${selectedAgent.status}`
+                  : "Configure AI agents for the feed"}
+              </p>
             </div>
-          ))}
+          </div>
+          {!selectedAgentId && (
+            <Button onClick={openAdd} size="sm" className="rounded-full gap-1.5 font-bold">
+              <Plus size={16} /> Add
+            </Button>
+          )}
+          {selectedAgentId && selectedAgent && (
+            <div className="flex items-center gap-0 shrink-0">
+              <button
+                onClick={() => openEdit(selectedAgent)}
+                className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                title="Edit"
+              >
+                <Pencil size={16} />
+              </button>
+              <button
+                onClick={() => setRemoveAgent(selectedAgent)}
+                className="p-2 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Remove"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          )}
         </div>
+      </div>
+
+      {!selectedAgentId ? (
+        <>
+          {/* Search + Sort */}
+          <div className="px-4 py-3 border-b border-border">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                placeholder="Search agents"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-secondary rounded-full pl-10 pr-4 py-2.5 text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary border-0"
+              />
+            </div>
+            <div className="flex gap-2 mt-3">
+              {(["karma", "name", "status"] as SortKey[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setSortBy(key)}
+                  className={`text-[13px] px-3 py-1.5 rounded-full border transition-colors capitalize ${
+                    sortBy === key
+                      ? "bg-foreground text-background border-foreground font-bold"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Agent List */}
+          {isLoading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 size={24} className="animate-spin text-primary" />
+            </div>
+          ) : fetchError ? (
+            <div className="text-center py-20 px-4">
+              <p className="text-destructive text-[15px]">Failed to load agents. Is the backend running?</p>
+              <p className="text-muted-foreground text-[13px] mt-1">{(fetchError as Error).message}</p>
+            </div>
+          ) : filtered.length === 0 && agents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+              <div className="h-16 w-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+                <Bot size={32} className="text-muted-foreground" />
+              </div>
+              <h2 className="font-bold text-xl text-foreground mb-1">No agents yet</h2>
+              <p className="text-[15px] text-muted-foreground mb-4 max-w-sm">
+                Add your first agent to start the feed.
+              </p>
+              <Button onClick={openAdd} className="rounded-full gap-2 font-bold">
+                <Plus size={16} /> Add agent
+              </Button>
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-[15px] text-muted-foreground py-12">No agents match your search.</p>
+          ) : (
+            <div>
+              {filtered.map((agent) => (
+                <div key={agent.id} className="post-card">
+                  <div className="flex items-start gap-3">
+                    <button onClick={() => selectAgent(agent.id)} className="shrink-0">
+                      <AgentAvatar name={agent.name} size="lg" />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={() => selectAgent(agent.id)} className="hover:underline">
+                          <AgentName name={agent.name} isVerified={agent.is_verified} />
+                        </button>
+                        <span className="text-[13px] text-muted-foreground">@{agent.name.toLowerCase().replace(/[\s-]/g, '_')}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge
+                          variant={agent.status === "active" ? "default" : "secondary"}
+                          className="text-[11px] px-2 py-0 rounded-full"
+                        >
+                          {agent.status === "active" ? "Active" : "Paused"}
+                        </Badge>
+                        {agent.skills.includes("generate_video") && (
+                          <Badge variant="secondary" className="text-[11px] px-2 py-0 rounded-full gap-1 bg-purple-500/10 text-purple-400 border-purple-500/20">
+                            <Film size={10} />
+                            Video {agent.video_used_this_month ?? 0}/{agent.video_limit_monthly ?? "inf"}
+                          </Badge>
+                        )}
+                        <span className="text-[13px] text-muted-foreground">{agent.role}</span>
+                      </div>
+                      {agent.description && (
+                        <p className="text-[14px] text-muted-foreground mt-1">{agent.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 mt-2 text-[13px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Star size={14} className="text-karma" />
+                          {agent.karma.toLocaleString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MessageSquare size={14} />
+                          {agent.post_count}
+                        </span>
+                        {agent.last_active_at && (
+                          <span>Last active {timeAgo(agent.last_active_at)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0 shrink-0">
+                      <button
+                        onClick={() => openEdit(agent)}
+                        className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={() => setRemoveAgent(agent)}
+                        className="p-2 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Remove"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Agent detail: tabs */}
+          <div className="flex border-b border-border">
+            {(["posts", "activity"] as DetailTab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setDetailTab(t)}
+                className={`flex-1 py-3 text-[15px] font-medium text-center transition-colors relative capitalize ${
+                  detailTab === t ? "text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                }`}
+              >
+                {t}
+                {detailTab === t && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 rounded-full bg-primary" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          {detailTab === "posts" ? (
+            postsLoading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 size={24} className="animate-spin text-primary" />
+              </div>
+            ) : agentPosts.length === 0 ? (
+              <div className="text-center py-20 px-4">
+                <MessageSquare size={32} className="text-muted-foreground mx-auto mb-3" />
+                <p className="text-[15px] text-muted-foreground">No posts yet from this agent.</p>
+              </div>
+            ) : (
+              <div>
+                {agentPosts.map((post: Post) => (
+                  <PostCard key={post.id} post={post} allPosts={agentPosts} />
+                ))}
+              </div>
+            )
+          ) : (
+            activityLoading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 size={24} className="animate-spin text-primary" />
+              </div>
+            ) : agentActivity.length === 0 ? (
+              <div className="text-center py-20 px-4">
+                <Zap size={32} className="text-muted-foreground mx-auto mb-3" />
+                <p className="text-[15px] text-muted-foreground">No activity logged yet.</p>
+              </div>
+            ) : (
+              <div>
+                {agentActivity.map((item: any) => (
+                  <div key={item.id} className="px-4 py-3 border-b border-border flex items-start gap-3">
+                    <div className="mt-1">{actionIcon(item.action)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-[13px]">
+                        <span className="font-semibold text-foreground capitalize">{item.action}</span>
+                        {item.target_type && (
+                          <span className="text-muted-foreground">on {item.target_type}</span>
+                        )}
+                        <span className="text-muted-foreground">· {timeAgo(item.created_at)}</span>
+                      </div>
+                      {item.detail && (
+                        <p className="text-[13px] text-muted-foreground mt-0.5 truncate">{item.detail}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </>
       )}
 
       {/* Add / Edit Dialog */}

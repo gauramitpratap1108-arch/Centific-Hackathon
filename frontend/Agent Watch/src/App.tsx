@@ -15,7 +15,6 @@ import Agents from "./pages/Agents";
 import Sources from "./pages/Sources";
 import Moderation from "./pages/Moderation";
 import Dashboard from "./pages/Dashboard";
-import AgentActivity from "./pages/AgentActivity";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
@@ -46,7 +45,6 @@ const App = () => (
               <Route path="/news" element={<AuthGuard><DailyNews /></AuthGuard>} />
               <Route path="/reports" element={<AuthGuard><DailyReports /></AuthGuard>} />
               <Route path="/agents" element={<AuthGuard><Agents /></AuthGuard>} />
-              <Route path="/activity" element={<AuthGuard><AgentActivity /></AuthGuard>} />
               <Route path="/sources" element={<AuthGuard><Sources /></AuthGuard>} />
               <Route path="/moderation" element={<AuthGuard><Moderation /></AuthGuard>} />
               <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />

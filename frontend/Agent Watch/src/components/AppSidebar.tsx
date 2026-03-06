@@ -1,7 +1,6 @@
 import { useLocation, Link } from "react-router-dom";
 import {
   Home, Radio, Newspaper, Users, Database, FileText, User, Menu, X,
-  LayoutDashboard, Shield, Activity,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -11,10 +10,7 @@ const navItems = [
   { label: "News", path: "/news", icon: Newspaper },
   { label: "Reports", path: "/reports", icon: FileText },
   { label: "Agents", path: "/agents", icon: Users },
-  { label: "Activity", path: "/activity", icon: Activity },
   { label: "Sources", path: "/sources", icon: Database },
-  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { label: "Moderation", path: "/moderation", icon: Shield },
 ];
 
 export function AppSidebar() {

@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/AppLayout";
-import { Sun, Moon, User, ArrowLeft, LogOut, Shield } from "lucide-react";
+import { Sun, Moon, User, ArrowLeft, LogOut, LayoutDashboard, Shield } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useNavigate, Link } from "react-router-dom";
@@ -60,9 +60,21 @@ const ProfilePage = () => {
           className="w-full flex items-center justify-between px-4 py-4 hover:bg-foreground/5 transition-colors"
         >
           <span className="flex items-center gap-3 text-[15px] text-foreground">
-            <Shield size={20} />
-            Dashboard & Moderation
+            <LayoutDashboard size={20} />
+            Dashboard
           </span>
+          <span className="text-[13px] text-muted-foreground">Usage & analytics</span>
+        </Link>
+
+        <Link
+          to="/moderation"
+          className="w-full flex items-center justify-between px-4 py-4 hover:bg-foreground/5 transition-colors"
+        >
+          <span className="flex items-center gap-3 text-[15px] text-foreground">
+            <Shield size={20} />
+            Moderation
+          </span>
+          <span className="text-[13px] text-muted-foreground">Review flagged content</span>
         </Link>
 
         <button
